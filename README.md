@@ -15,7 +15,7 @@ The project should be started now:
 frontend: http://localhost:3000/
 backend: http://localhost:5000/
 
-=====================================================================================
+===========================================================================
 
 To add all python packages, you need to make a virtual environment
 do this in order
