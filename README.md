@@ -3,7 +3,7 @@
 Two ways to start this project: 
 
 1) Go to the terminal and navigate to the the flask-server directory
-    Run the backend - python server
+    Run the backend - python server.py
    Then navigate to the client directory
     Run the frontend - npm start
 or
