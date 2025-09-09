@@ -1,19 +1,27 @@
 from flask import Flask
 
 app = Flask(__name__)
-#MEMBERS API ROUTE
-@app.route('/members')
-def members():
-    return {"members": ["member1", "member2"]}
 
-#empty route
+#empty route/Dashboard
 @app.route('/')
-def index():
-    return "This is the index page"
+def dashboard():
+    return "Dashboard"
 
 @app.route('/leaderboard')
 def leaderboard():
     return {"leaderboard": ["member1 on leaderboard", "member2 on leaderboard"]}
+
+@app.route('/insights')
+def insights():
+    return "Insights"
+
+@app.route('/profile')
+def profile():
+    return "My Profile"
+
+@app.route('/settings')
+def settings():
+    return "Settings"
 
 
 if __name__ == '__main__':
