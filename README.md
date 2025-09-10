@@ -32,3 +32,37 @@ To add stuff to the requirements.txt:
 Make sure environment is activated with venv\Scripts\activate
 then do pip freeze > requirements.txt
 All packages in the environment should have a line in the requirements.txt
+
+===========================================================================
+
+## Running the Project with Docker
+
+You can run the entire project using Docker Compose, which builds and starts both the frontend (React) and backend (Flask) services in isolated containers.
+
+**Project-specific requirements:**
+- Frontend uses Node.js version `22.13.1-slim`.
+- Backend uses Python `3.13-slim`.
+- All dependencies are installed automatically from `package.json` and `requirements.txt` during the build.
+
+**Ports exposed:**
+- Frontend (React): `3000` (http://localhost:3000/)
+- Backend (Flask): `5000` (http://localhost:5000/)
+
+**Build and run instructions:**
+1. Make sure Docker and Docker Compose are installed on your system.
+2. From the project root directory, run:
+   ```sh
+   docker compose up --build
+   ```
+   This will build and start both services. The frontend will be available at [http://localhost:3000](http://localhost:3000) and the backend at [http://localhost:5000](http://localhost:5000).
+
+**Configuration:**
+- No environment variables are required by default. If you need to set any, you can create a `.env` file in the project root and uncomment the `env_file` lines in the `docker-compose.yml`.
+- The Docker setup uses non-root users for both services for improved security.
+- The frontend is served using the `serve` package. Make sure it is listed as a dependency in `client/package.json`.
+
+**Special notes:**
+- If you change dependencies, rebuild the containers with `docker compose up --build`.
+- The services are connected via the `appnet` Docker network.
+
+===========================================================================

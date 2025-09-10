@@ -11,7 +11,7 @@ def members():
 def index():
     return "This is the index page"
 
-@app.route('/leaderboard')
+@app.route('/ ')
 def leaderboard():
     return {"leaderboard": ["member1 on leaderboard", "member2 on leaderboard"]}
 
