@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os
 import sentencepiece as spm
+import numpy as np
 
 PAD_ID = 0   # padding
 BOS_ID = 1   # beginning of sequence
@@ -180,8 +181,18 @@ class Decoder(layers.Layer):
 
 class Transformer(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff,
-                 input_vocab_size, target_vocab_size, max_len=2048, rate=0.1, pad_id=0):
-        super().__init__()
+                 input_vocab_size, target_vocab_size, max_len=2048, rate=0.1, pad_id=0, **kwargs):
+        super().__init__(**kwargs)
+        self.num_layers = num_layers
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.dff = dff
+        self.input_vocab_size = input_vocab_size
+        self.target_vocab_size = target_vocab_size
+        self.max_len = max_len
+        self.dropout_rate = rate
+
+
         self.pad_id = pad_id
         self.encoder = Encoder(num_layers, d_model, num_heads, dff,
                                input_vocab_size, max_len, rate)
@@ -209,13 +220,36 @@ class Transformer(tf.keras.Model):
         )
         return self.final_layer(dec_out)
 
+    def get_config(self):
+
+        return{
+            "num_layers": self.num_layers,
+            "d_model": self.d_model,
+            "num_heads": self.num_heads,
+            "dff": self.dff,
+            "input_vocab_size": self.input_vocab_size,
+            "target_vocab_size": self.target_vocab_size,
+            "dropout_rate": self.dropout_rate,
+            "pad_id": self.pad_id,
+            "max_len": self.max_len,
+
+        }
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+
+
+
+
 
 # Dataset Pipeline
 
 # ---------- Replace your current load_dataset with this ----------
 def load_dataset(corpus_file, sp, seq_len=128, batch_size=32, pad_id=0):
-    BOS_ID = 2
-    EOS_ID = 3
+    BOS_ID = 1
+    EOS_ID = 2
     PAD_ID = pad_id
 
     def encode_line_py(s: bytes):
@@ -260,12 +294,12 @@ def load_dataset(corpus_file, sp, seq_len=128, batch_size=32, pad_id=0):
 
 # Training
 
-def train_model(corpus_file="prs_corpus.txt", vocab_size=8000, epochs=5):
+def train_model(corpus_file="prs_corpus_cleaned.txt", vocab_size=8000, epochs=10):
     sp = train_sentencepiece(corpus_file, vocab_size)
     dataset = load_dataset(corpus_file, sp)
 
     transformer = Transformer(
-        num_layers=2, d_model=128, num_heads=8, dff=512,
+        num_layers=4, d_model=256, num_heads=8, dff=1024,
         input_vocab_size=vocab_size, target_vocab_size=vocab_size, pad_id=0
     )
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -275,34 +309,32 @@ def train_model(corpus_file="prs_corpus.txt", vocab_size=8000, epochs=5):
     transformer.fit(dataset,epochs=epochs)
     return transformer, sp
 
-# Inference (Greedy Decode)
+# New Sampling
 
-def generate_review(model, sp, text, max_len=128):
-    # encode text (no BOS/EOS trimming needed — our tokenizer may include raw ids)
+def generate_review_sampling(model, sp, text, max_len=128, top_k=50):
+    # encode text
     ids = sp.encode(text, out_type=int)[:max_len-2]
-    encoder_ids = [2] + ids + [3]  # BOS/EOS for encoder as your dataset uses
+    encoder_ids = [2] + ids + [3]  # BOS/EOS
     if len(encoder_ids) < max_len:
-        encoder_ids = encoder_ids + [0] * (max_len - len(encoder_ids))
-    encoder_input = tf.expand_dims(tf.constant(encoder_ids, dtype=tf.int64), 0)  # (1, seq_len)
+        encoder_ids += [0] * (max_len - len(encoder_ids))
+    encoder_input = tf.expand_dims(tf.constant(encoder_ids, dtype=tf.int64), 0)
 
-    output = [2]  # decoder starts with BOS
+    output = [2]  # BOS
     for _ in range(max_len):
-        # Build decoder input padded to seq_len
         decoder_input = output + [0] * (max_len - len(output))
-        decoder_input = tf.expand_dims(tf.constant(decoder_input, dtype=tf.int64), 0)  # (1, seq_len)
+        decoder_input = tf.expand_dims(tf.constant(decoder_input, dtype=tf.int64), 0)
 
-        # Note: model expects inputs as a tuple (enc, tar)
-        logits = model((encoder_input, decoder_input), training=False)  # (1, seq_len, V)
-        # choose logits for the current last generated position
-        last_pos = len(output) - 1
-        last_logits = logits[0, last_pos, :]  # shape (V,)
-        next_id = int(tf.argmax(last_logits).numpy())
+        logits = model((encoder_input, decoder_input), training=False)
+        last_logits = logits[0, len(output)-1, :]
+
+        # Top-k sampling
+        top_k_logits, top_k_indices = tf.math.top_k(last_logits, k=top_k)
+        probs = tf.nn.softmax(top_k_logits)
+        next_id = int(np.random.choice(top_k_indices.numpy(), p=probs.numpy()))
 
         if next_id == 3:  # EOS
             break
         output.append(next_id)
-        if len(output) >= max_len:
-            break
 
     return sp.decode(output)
 
@@ -310,10 +342,10 @@ def generate_review(model, sp, text, max_len=128):
 
 
 if __name__ == "__main__":
-    corpus_file = "prs_corpus.txt"
+    corpus_file = "prs_corpus_cleaned.txt"
 
     transformer, sp = train_model(corpus_file=corpus_file,
-                                  vocab_size=8000,epochs=5)
-    transformer.save("pr_transformer_model")
-    sp.save("spm_prs.model")
-    print("Training complete! Model + tokeknizer saved.")
+                                  vocab_size=8000,epochs=10)
+    transformer.save("pr_transformer_model.keras")
+
+    print("Training complete! Model + tokenizer saved.")
