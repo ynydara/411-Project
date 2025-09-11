@@ -1,20 +1,81 @@
-from flask import Flask
+from flask import Flask, jsonify
+import psycopg2
+
+#run this only once pls
+def initdb():
+    conn = psycopg2.connect(
+        host="postgres",
+        database="mydb",
+        user="user",
+        password="password"
+    )
+    cur = conn.cursor()
+    cur.execute("""
+                CREATE TABLE IF NOT EXISTS leaderboard
+                (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    score INT NOT NULL
+                );
+                """)
+
+    # Insert some default data
+    cur.execute("DELETE FROM leaderboard;")
+    cur.execute("SELECT COUNT(*) FROM leaderboard;")
+    if cur.fetchone()[0] == 0:  # only insert if empty
+        cur.execute("""
+                    INSERT INTO leaderboard (name, score)
+                    VALUES ('Amber', 100),
+                           ('Julie', 80),
+                           ('Alyssa', 60);
+                    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+#this is the connection for da database
+def getdbconnection():
+    conn = psycopg2.connect(
+        host="postgres",
+        database="mydb",
+        user="user",
+        password="password"
+    )
+    return conn
 
 app = Flask(__name__)
-#MEMBERS API ROUTE
-@app.route('/members')
-def members():
-    return {"members": ["member1", "member2"]}
 
-#empty route
-@app.route('/')
-def index():
-    return "This is the index page"
+#empty route/Dashboard
+@app.route('/api/')
+def dashboard():
+    return "Dashboard"
 
-@app.route('/leaderboard')
-def leaderboard():
-    return {"leaderboard": ["member1 on leaderboard", "member2 on leaderboard"]}
+
+@app.route('/api/leaderboard', methods=['GET'])
+def getleaderboard():
+    conn = getdbconnection()
+    cur = conn.cursor()
+    cur.execute('SELECT name, score FROM leaderboard ORDER BY score DESC;')
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    data = [{"name": r[0], "score": r[1]} for r in rows]
+    return jsonify(data)
+
+@app.route('/api/insights')
+def insights():
+    return "Insights"
+
+@app.route('/api/profile')
+def profile():
+    return "My Profile"
+
+@app.route('/api/settings')
+def settings():
+    return "Settings"
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    initdb()
+    app.run(host="0.0.0.0", port=5000, debug=True)
