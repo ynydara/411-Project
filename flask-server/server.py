@@ -9,7 +9,14 @@ def dashboard():
 
 @app.route('/leaderboard')
 def leaderboard():
-    return {"leaderboard": ["member1 on leaderboard", "member2 on leaderboard"]}
+    return {
+        "leaderboard": [
+            {"name": "Member 1", "score": 5},
+            {"name": "Member 2", "score": 4},
+            {"name": "Member 3", "score": 8},
+            {"name": "Member 4", "score": 10}
+        ]
+    }
 
 @app.route('/insights')
 def insights():

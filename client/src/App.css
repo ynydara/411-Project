@@ -1,7 +1,9 @@
 .App {
   text-align: center;
-  align-items: center;
+  align-items: left;
+  background-color: #ffffff;
 }
+
 
 .App-logo {
   height: 40vmin;
@@ -47,7 +49,42 @@
   display: flex;
   flex-direction: column;
   align-items: left;
-  gap: 20px;
+  gap: 10px;
+}
+
+.envoc-green {
+  background-color: #b0d039;
+}
+
+.nav-bar {
+  background-color: #ffffff;
+  height: 10px;
+  font-size: 1.5rem;
+  text-align: center;
+  align-items: center;
+}
+
+.welcome-box {
+  text-align: center;
+  align-items: center;
+  background-color: #ffffff;
+  border-radius: 10px;
+}
+
+.envoc-pic {
+  align-items: left;
+}
+
+.settings-page {
+  margin: 40px auto;
+  display: flex;
+  align-items: left;
+}
+
+.profile-page {
+  margin: 40px auto;
+  display: flex;
+  align-items: left;
 }
 
 @keyframes App-logo-spin {
