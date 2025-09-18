@@ -1,0 +1,79 @@
+# Version control
+.git/
+.gitignore
+.svn/
+.hg/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node.js dependencies and artifacts
+node_modules/
+client/node_modules/
+flask-server/node_modules/
+npm-debug.log
+yarn-debug.log
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+flask-server/venv/
+venv/
+
+# Build outputs
+build/
+dist/
+out/
+client/build/
+client/dist/
+
+# Test and debug files
+test/
+tests/
+*_test.go
+debug/
+*.log
+
+# Environment and secrets
+.env*
+*.env
+*.pem
+*.key
+*.crt
+config.local.*
+*.local.yml
+.local/
+local/
+
+# Documentation and project files
+docs/
+*.md
+README*
+LICENSE
+
+# Temporary and cache files
+tmp/
+temp/
+*.tmp
+.go-cache/
+
+# Docker files
+Dockerfile*
+docker-compose*
+
+# Miscellaneous
+*.class
+*.gradle/
+target/
+
+# Exclude vendor for Go projects
+/vendor/
+
+# Exclude Go test binaries
+*.test

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import psycopg2
 
 #run this only once pls
@@ -74,6 +74,12 @@ def profile():
 @app.route('/api/settings')
 def settings():
     return "Settings"
+
+#
+# @app.route('/edit_item/<int:item_id>', methods=['GET', 'POST'])
+# def edit_item(item_id):
+#     if request.method == 'POST':
+
 
 
 if __name__ == '__main__':
