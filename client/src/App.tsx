@@ -8,6 +8,7 @@ import LeaderboardPage from "./LeaderboardPage";
 import DashboardPage from "./DashboardPage";
 import SettingsPage from "./SettingsPage";
 import ProfilePage from "./ProfilePage";
+import LoginPage from "./LoginPage";
 import AuthLogin from "./authLogin";
 import AuthProfile from "./authProfile";
 import AuthLogout from "./authLogout";
@@ -21,19 +22,17 @@ function App() {
       <div>
         <div className="nav-bar">
           <nav>
-            <Link to="/">Dashboard</Link> | <Link to="/leaderboard">Leaderboard</Link> | <Link to="/profile">My Profile</Link> | <Link to="/settings">Settings</Link>
+            <Link to="/dashboard">Dashboard</Link> | <Link to="/leaderboard">Leaderboard</Link> | <Link to="/profile">My Profile</Link> | <Link to="/settings">Settings</Link>
           </nav>
         </div>
       </div>
       <Routes>
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<LoginPage />}/>
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
-         <AuthLogin></AuthLogin>
-         <AuthLogout></AuthLogout>
-         <AuthProfile></AuthProfile>
      </Router>
   );
 }
