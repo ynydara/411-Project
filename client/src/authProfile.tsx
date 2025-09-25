@@ -8,15 +8,13 @@ const AuthProfile = () => {
     return <div>Loading ...</div>;
   }
 
-  return (
-    isAuthenticated && (
+  return isAuthenticated && user ? (
       <div>
         <img src={user.picture} alt={user.name} />
         <h2>{user.name}</h2>
         <p>{user.email}</p>
       </div>
-    )
-  );
+    ) : null;
 };
 
 export default AuthProfile;
