@@ -2,6 +2,8 @@ import "./App.css";
 import React, { useEffect, useState } from "react";
 import { Tabs, TextInput } from '@mantine/core';
 
+import AuthLogout from "./authLogout";
+
 function SettingsPage() {
   return (
     <div className="settings-page">
@@ -25,7 +27,7 @@ function SettingsPage() {
         profile stuff, username/edit, email/edit
       </Tabs.Panel>
 
-      <Tabs.Panel value="messages">
+      <Tabs.Panel value="password">
         change/new password
       </Tabs.Panel>
 
@@ -33,8 +35,8 @@ function SettingsPage() {
         connect to github
       </Tabs.Panel>
 
-      <Tabs.Panel value="settings">
-        logout of account
+      <Tabs.Panel value="logout">
+        <AuthLogout></AuthLogout>
       </Tabs.Panel>
     </Tabs>
     </div>

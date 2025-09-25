@@ -7,16 +7,23 @@ import { createRoot } from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';
 
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-); 
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
-  <React.StrictMode>
-    <MantineProvider>
-      <App />
-    </MantineProvider>
-  </React.StrictMode>
+      <React.StrictMode>
+        <MantineProvider>
+            <Auth0Provider
+                domain="dev-7j638k7cu07zi7xw.us.auth0.com"
+                clientId="xs6IRfRrY1fMAtazbGF5uA25lWsAIbDs"
+                authorizationParams={{
+                    redirect_uri: window.location.origin,
+                }}
+            >
+                <App />
+            </Auth0Provider>
+        </MantineProvider>
+      </React.StrictMode>
+
 ); 
 
 // If you want to start measuring performance in your app, pass a function

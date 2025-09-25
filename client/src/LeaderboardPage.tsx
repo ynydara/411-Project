@@ -1,75 +1,28 @@
-import "./App.css";
-import React, { useEffect, useState } from "react";
-import { Table, Loader, Container, Title, Paper } from "@mantine/core";
+    import React, { useState, useEffect } from 'react';
 
-interface LeaderboardEntry {
-  name: string;
-  score: number;
-}
+    function LeaderboardPage() {
+      const [data, setData] = useState([]);
 
-interface LeaderboardData {
-  leaderboard: LeaderboardEntry[];
-}
+      useEffect(() => {
+        fetch('http://localhost:5000/api/data') // Replace with your Flask API URL
+          .then(response => {
+              return setData(data);
+          })
+          .catch(error => {
+            console.error("Error fetching data:", error);
+          });
+      }, []); // Empty dependency array ensures this runs once on mount
 
-function LeaderboardPage() {
-  const [data, setData] = useState<LeaderboardEntry[] | null>(null);
+      return (
+        <div>
+          <h1>Data from Flask & PostgreSQL:</h1>
+          <ul>
+            {data.map((item, index) => (
+              <li key={index}>{JSON.stringify(item)}</li> // Adjust rendering based on your data structure
+            ))}
+          </ul>
+        </div>
+      );
+    }
 
-  useEffect(() => {
-    fetch("/leaderboard")
-      .then((res) => res.json())
-      .then((res: LeaderboardData) => {
-        const sorted = [...res.leaderboard].sort((a, b) => b.score - a.score);
-        setData(sorted);
-      });
-  }, []);
-
-  if (!data) return <Loader />;
-
-  return (
-    <div className="page-container">
-            <Paper shadow="lg" p="xl" radius="md" withBorder>
-                <Title ta="center" mb="xl" size= {60}>
-                    Leaderboard
-                </Title>
-                <Table 
-                    striped
-                    highlightOnHover
-                    withTableBorder
-                    withColumnBorders
-                    horizontalSpacing="md"
-                    verticalSpacing="md"
-                    maw={800}
-                    mx="auto"
-                    fz="md"
-                >
-                    <thead>
-                        <tr>
-                            <th style={{ textAlign: "center", fontSize: "30px" }}>Rank</th>
-                            <th style={{ textAlign: "center", fontSize: "30px" }}>Name</th>
-                            <th style={{ textAlign: "center", fontSize: "30px" }}>Score</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.map((entry, index) => {
-                            let style = {};
-                            if (index === 0) style = { backgroundColor: "#ffd700", textAlign: "center", fontSize: "25px" }; 
-                            if (index === 1) style = { backgroundColor: "#c0c0c0", textAlign: "center", fontSize: "25px"}; 
-                            if (index === 2) style = { backgroundColor: "#cd7f32", textAlign: "center", fontSize: "25px"}; 
-                            if (index > 2) style = { textAlign: "center", fontSize: "25px"}; 
-
-                            return (
-                            <tr key={index} style={style}>
-                                <td>{index + 1}</td>
-                                <td>{entry.name}</td>
-                                <td>{entry.score}</td>
-                            </tr>
-                            );
-                        })}
-                    </tbody>
-                </Table>
-            </Paper>
-    </div>
-  );
-}
-
-export default LeaderboardPage;
+    export default LeaderboardPage;

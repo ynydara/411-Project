@@ -4,7 +4,7 @@
   "private": true,
   "proxy": "http://localhost:5000",
   "dependencies": {
-    "@auth0/auth0-react": "^2.4.0",
+    "@auth0/auth0-react": "^2.5.0",
     "@mantine/core": "^8.2.0",
     "@mantine/form": "^8.2.0",
     "@mantine/hooks": "^8.2.0",
