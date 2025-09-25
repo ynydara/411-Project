@@ -53,12 +53,12 @@ def getdbconnection():
 app = Flask(__name__)
 
 #empty route/login screen
-#@app.route('/api/')
-#def default():
- #   return "default"
-
-
 @app.route('/api/')
+def default():
+    return "default"
+
+
+@app.route('/api/dashboard')
 def dashboard():
     return "Dashboard"
 

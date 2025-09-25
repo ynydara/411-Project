@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Tabs, TextInput } from '@mantine/core';
 
 import AuthLogout from "./authLogout";
+import AuthProfile from "./authProfile";
 
 function SettingsPage() {
   return (
@@ -25,6 +26,7 @@ function SettingsPage() {
 
       <Tabs.Panel value="profile">
         profile stuff, username/edit, email/edit
+          <AuthProfile></AuthProfile>
       </Tabs.Panel>
 
       <Tabs.Panel value="password">
