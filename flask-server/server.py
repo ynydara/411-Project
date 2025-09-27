@@ -1,5 +1,11 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import psycopg2
+# from flask_cors import CORS
+# CORS(app)
+# import jose import jwt
+import requests
+
+
 
 #run this only once pls
 def initdb():
@@ -46,8 +52,13 @@ def getdbconnection():
 
 app = Flask(__name__)
 
-#empty route/Dashboard
+#empty route/login screen
 @app.route('/api/')
+def default():
+    return "default"
+
+
+@app.route('/api/dashboard')
 def dashboard():
     return "Dashboard"
 
@@ -56,12 +67,12 @@ def dashboard():
 def getleaderboard():
     conn = getdbconnection()
     cur = conn.cursor()
-    cur.execute('SELECT name, score FROM leaderboard ORDER BY score DESC;')
+    cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    data = [{"name": r[0], "score": r[1]} for r in rows]
-    return jsonify(data)
+    data = [{"id" : r[0] , "name": r[1], "score": r[2]} for r in rows]
+    return jsonify({"leaderboard": data})
 
 @app.route('/api/insights')
 def insights():
