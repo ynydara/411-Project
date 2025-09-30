@@ -46,7 +46,7 @@ export function HeaderSimple() {
     <header className={classes.header}>
       <Container size="md" className={classes.inner}>
 
-        <Group gap={5} visibleFrom="xs">
+        <Group gap={5} visibleFrom="xs" ml="auto">
           {items}
         </Group>
 
