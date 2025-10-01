@@ -1,0 +1,52 @@
+services:
+  ts-client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: ts-client
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3000:80"  # React frontend
+    networks:
+      - appnet
+    # env_file: ./.env  # Uncomment if .env file exists
+
+  python-flask-server:
+    build:
+      context: ./flask-server
+      dockerfile: Dockerfile
+    container_name: python-flask-server
+    restart: unless-stopped
+    init: true
+    ports:
+      - "5000:5000"  # Flask backend
+    networks:
+      - appnet
+    # env_file: ./.env  # Uncomment if .env file exists
+    depends_on:
+      - ts-client #remove if need to remove. Flask will wait for ts-client
+      - postgres   # Flask waits for PostgreSQL
+    environment:
+      DATABASE_URL: postgres://user:password@postgres:5432/mydbd
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"   # optional, for host access
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+volumes:
+  pgdata:

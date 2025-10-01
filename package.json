@@ -6,6 +6,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.5.0",
     "react-router-dom": "^7.8.2"
   }
 }
