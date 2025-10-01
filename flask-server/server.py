@@ -67,12 +67,12 @@ def dashboard():
 def getleaderboard():
     conn = getdbconnection()
     cur = conn.cursor()
-    cur.execute('SELECT name, score FROM leaderboard ORDER BY score DESC;')
+    cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    data = [{"name": r[0], "score": r[1]} for r in rows]
-    return jsonify(data)
+    data = [{"id" : r[0] , "name": r[1], "score": r[2]} for r in rows]
+    return jsonify({"leaderboard": data})
 
 @app.route('/api/insights')
 def insights():
