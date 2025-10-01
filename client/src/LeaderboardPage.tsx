@@ -1,7 +1,9 @@
     import React, { useState, useEffect } from 'react';
+    import {useAuth0} from "@auth0/auth0-react";
 
     function LeaderboardPage() {
       const [data, setData] = useState([]);
+      const { user, isAuthenticated, isLoading } = useAuth0();
 
       useEffect(() => {
         fetch('http://localhost:5000/api/data') // Replace with your Flask API URL

@@ -4,9 +4,12 @@ import { Tabs, TextInput } from '@mantine/core';
 
 import AuthLogout from "./authLogout";
 import AuthProfile from "./authProfile";
+import {useAuth0} from "@auth0/auth0-react";
 
 function SettingsPage() {
-  return (
+    const { user, isAuthenticated, isLoading } = useAuth0();
+
+  return  (
     <div className="settings-page">
     <Tabs color="gray" variant="outline" defaultValue="gallery" orientation="vertical" >
       <Tabs.List grow>
