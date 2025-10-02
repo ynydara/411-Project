@@ -261,8 +261,8 @@ def updateLeaderboardEntry(entry_id):
                 if values:
                     query += ", "
                 query += "score = %s"
-                values.append(score)
-            query += " WHERE id = %s RETURNING id;"
+                values.append(score) #parameteize Query  so no SQL injections
+                query += " WHERE id = %s RETURNING id;"
             values.append(entry_id)
 
             cur.execute(query, tuple(values))
