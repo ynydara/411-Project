@@ -23,7 +23,7 @@ function DashboardPage() {
       });
   }, []);
 
-  return isAuthenticated && user ? (
+  return user ? (
       <div className="page-container">
         <div className="welcome-box">
           <Title order={1}>Welcome back, {user.name}!</Title>

@@ -8,7 +8,6 @@ interface LeaderboardEntry {
   score: number;
 }
     
-      
 
 function LeaderboardPage() {
   const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
@@ -37,8 +36,8 @@ function LeaderboardPage() {
                     highlightOnHover
                     withTableBorder
                     withColumnBorders
-                    horizontalSpacing="md"
-                    verticalSpacing="md"
+                    horizontalSpacing="xl"
+                    verticalSpacing="xl"
                     maw={800}
                     mx="auto"
                     fz="md"
@@ -54,15 +53,17 @@ function LeaderboardPage() {
           {!topMembers ? (
             <Loader />
           ) : (
-            <List spacing="sm" size="lg" type="ordered">
+            <div>
               {topMembers.map((member, index) => (
-                <List.Item key={index}>
-                  <Text>
-                    {member.name} --- {member.score}
-                  </Text>
-                </List.Item>
+
+                     <tr key={index} style={{ textAlign: "center", fontSize: "26px" }}>
+                    <td>{index + 1}</td>
+                         <td>{member.name}</td>
+                    <td>{member.score}</td>
+                     </tr>
+
               ))}
-            </List>
+            </div>
           )}
 
         </tbody>

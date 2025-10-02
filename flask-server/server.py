@@ -1,10 +1,9 @@
 from flask import Flask, jsonify, request
 import psycopg2
-# from flask_cors import CORS
-# CORS(app)
-# import jose import jwt
 import requests
-
+import os
+from flask_cors import CORS
+from jose import jwt
 
 
 #run this only once pls
@@ -51,17 +50,12 @@ def getdbconnection():
     return conn
 
 app = Flask(__name__)
+CORS(app)
 
 #empty route/login screen
 @app.route('/api/')
 def default():
     return "default"
-
-
-@app.route('/api/dashboard')
-def dashboard():
-    return "Dashboard"
-
 
 @app.route('/api/leaderboard', methods=['GET'])
 def getleaderboard():
