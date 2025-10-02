@@ -78,14 +78,21 @@
 .settings-page {
   margin: 40px auto;
   display: flex;
-  align-items: left;
+  align-items: flex-start;
+
 }
 
 .profile-page {
   margin: 40px auto;
-  display: flex;
-  align-items: left;
+  align-items: center;
+  text-align: center;
+  padding: 0 50px;
 }
+
+.rounded {
+  border-radius: 12px;
+}
+
 
 @keyframes App-logo-spin {
   from {
