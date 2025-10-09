@@ -6,6 +6,7 @@ import { MantineProvider } from '@mantine/core';
 import { Auth0Provider } from '@auth0/auth0-react';
 import {parse as yamlParse} from "yaml";
 import config from './env.json';
+import "./App.css";
 
 
 

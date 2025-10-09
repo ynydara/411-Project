@@ -72,9 +72,9 @@ def getleaderboard():
 def insights():
     return "Insights"
 
-@app.route('/api/profile')
+@app.route('/api/achievements')
 def profile():
-    return "My Profile"
+    return "Acheivements"
 
 @app.route('/api/settings')
 def settings():
