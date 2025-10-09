@@ -1,6 +1,7 @@
 import "./App.css";
 import React, { useEffect, useState } from "react";
 import { Card, Title, Text, Loader, Container, List } from "@mantine/core";
+import {useAuth0} from "@auth0/auth0-react";
 
 interface LeaderboardEntry {
   name: string;
@@ -9,6 +10,7 @@ interface LeaderboardEntry {
 
 function DashboardPage() {
   const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
+  const { user, isAuthenticated, isLoading } = useAuth0();
 
   useEffect(() => {
     fetch("/leaderboard")
@@ -21,10 +23,10 @@ function DashboardPage() {
       });
   }, []);
 
-  return (
+  return user ? (
       <div className="page-container">
         <div className="welcome-box">
-          <Title order={1}>Welcome back!</Title>
+          <Title order={1}>Welcome back, {user.name}!</Title>
           <Title order={2}>Here's how your code reviews are looking this week</Title>
         </div>
 
@@ -52,7 +54,7 @@ function DashboardPage() {
           <Title order={3} mb="sm">Streak Tracker</Title>
         </Card>
       </div>
-  );
+  ) : null;
 }
 
 export default DashboardPage;
