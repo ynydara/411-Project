@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     githubId VARCHAR(50) NOT NULL UNIQUE,
-    score INTEGER DEFAULT 0
+    comment_score INTEGER DEFAULT 0,
+    code_score INTEGER DEFAULT 0
 );
 
 
@@ -11,7 +12,7 @@ CREATE TABLE IF NOT EXISTS awards (
     description TEXT
 );
 
-CREATE TABLE IF NOT EXISTS userAwards (
+CREATE TABLE IF NOT EXISTS user_awards (
     userId INT NOT NULL,
     awardId INT NOT NULL,
     PRIMARY KEY (userId, awardId),
