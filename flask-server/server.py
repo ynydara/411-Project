@@ -140,6 +140,7 @@ def addUser():
                 code_score:
                   type: integer
               example:
+                githubId: username
                 comment_score: 0
                 code_score: 0
         responses:
