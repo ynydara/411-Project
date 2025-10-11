@@ -301,17 +301,217 @@ def updateLeaderboardEntry(entry_id):
     return jsonify({"message": f"Entry {entry_id} updated successfully"}), 200
 
 
+#====================awards stuff =============================
+@app.route('/api/achievements', methods=['GET'])
+def getAchievements():
+    """
+    Get the achievements
+    ---
+    responses:
+      200:
+        description: Returns achievements
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                achievements:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      awardname:
+                        type: string
+                      description:
+                        type: string
+    """
+
+    conn = getdbconnection()
+    cur = conn.cursor()
+
+    cur.execute('SELECT id , awardname, description FROM awards')
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    data = [{"id" : r[0] , "awardname": r[1], "description": r[2]} for r in rows]
+    return jsonify({"leaderboard": data})
 
 
+@app.route('/api/achievements', methods=['POST'])
+def addAchievements():
+    """
+        Add a new entry to the achievements
+        ---
+        parameters:
+          - name: body
+            in: body
+            required: true
+            description: Add achievements
+            schema:
+              type: object
+              required:
+                - awardname
+                - description
+              properties:
+                awardname:
+                  type: string
+                description:
+                  type: string
+              example:
+                awardname: awardname
+                description: award description
+        responses:
+          201:
+            description: New entry created
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+        """
+    data = request.get_json()
+    awardname = data.get('awardname')
+    description = data.get('description')
 
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO awards (awardname, description)
+                VALUES (%s, %s) ON CONFLICT (awardname) DO NOTHING
+
+                RETURNING id;
+                """,
+                (awardname, description)
+            )
+
+            new_row = cur.fetchone()[0]
+
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({"id": new_row}), 201
+@app.route('/api/users/<int:user_id>/achievements', methods=['GET'])
+def get_user_achievements(user_id):
+    """
+    Get all achievements for a user
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the user
+    responses:
+      200:
+        description: List of achievements
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              awardname:
+                type: string
+              description:
+                type: string
+    """
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT a.id, a.awardname, a.description
+                FROM awards a
+                JOIN user_awards ua ON a.id = ua.awardId
+                WHERE ua.userId = %s;
+                """,
+                (user_id,)
+            )
+            achievements = [
+                {"id": row[0], "awardname": row[1], "description": row[2]}
+                for row in cur.fetchall()
+            ]
+    finally:
+        conn.close()
+
+    return jsonify(achievements), 200
+
+@app.route('/api/users/<int:user_id>/achievements', methods=['POST'])
+def give_user_achievement(user_id):
+    """
+    Give an achievement to a user
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the user
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - awardId
+          properties:
+            awardId:
+              type: integer
+          example:
+            awardId: 1
+    responses:
+      201:
+        description: Achievement granted
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      400:
+        description: Missing awardId
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+    """
+    data = request.get_json()
+    award_id = data.get('awardId')
+
+    if not award_id:
+        return jsonify({"error": "awardId is required"}), 400
+
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO user_awards (userId, awardId)
+                VALUES (%s, %s)
+                ON CONFLICT (userId, awardId) DO NOTHING;
+                """,
+                (user_id, award_id)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({"message": "Achievement granted"}), 201
 
 @app.route('/api/insights')
 def insights():
     return "Insights"
 
-@app.route('/api/achievements')
-def profile():
-    return "Acheivements"
+# @app.route('/api/achievements')
+# def profile():
+#     return "Acheivements"
 
 @app.route('/api/settings')
 def settings():
