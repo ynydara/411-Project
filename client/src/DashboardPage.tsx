@@ -122,7 +122,15 @@ function DashboardPage() {
                   ) : (
                  topMembers.map((member, index) => (
               <Group key={index} mt="xs">
-                <Avatar src={member.img} radius="xl" />
+                <Avatar
+                src={
+                    // If this is the logged-in user, use their Auth0 picture
+                    isAuthenticated && user && member.name === user.nickname
+                        ? user.picture
+                        : member.img
+                }
+                radius="xl"
+            />
                 <Text>{member.name}</Text>
                 <Text c="dimmed" ml="auto">
                   {member.score}
