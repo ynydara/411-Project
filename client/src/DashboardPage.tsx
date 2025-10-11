@@ -223,10 +223,6 @@ function DashboardPage() {
               <Text span c="blue" style={{ cursor: "pointer" }}>
                 GitHub
               </Text>{" "}
-              /{" "}
-              <Text span c="blue" style={{ cursor: "pointer" }}>
-                GitLab
-              </Text>
             </Text>
           </Card>
         </Grid.Col>
