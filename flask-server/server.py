@@ -68,7 +68,7 @@ def dashboard():
 @app.route('/api/users', methods=['GET'])
 def getUsers():
     """
-    Get the leaderboard
+    Gets all users / Get the leaderboard
     Optional query parameter:
       type: "code", "comment", or "overall" (default: "overall")
     ---
@@ -122,7 +122,7 @@ def getUsers():
 @app.route('/api/users', methods=['POST'])
 def addUser():
     """
-        Add a new entry to the leaderboard
+        Add a new user to the leaderboard
         ---
         parameters:
           - name: body
