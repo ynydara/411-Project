@@ -17,25 +17,25 @@ def initdb():
         password="password"
     )
     cur = conn.cursor()
-    cur.execute("""
-                CREATE TABLE IF NOT EXISTS leaderboard
-                (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    score INT NOT NULL
-                );
-                """)
+    # cur.execute("""
+    #             CREATE TABLE IF NOT EXISTS leaderboard
+    #             (
+    #                 id SERIAL PRIMARY KEY,
+    #                 name TEXT NOT NULL,
+    #                 score INT NOT NULL
+    #             );
+    #             """)
 
 
     # cur.execute("DELETE FROM leaderboard;") #delete this at some point
-    cur.execute("SELECT COUNT(*) FROM leaderboard;")
-    if cur.fetchone()[0] == 0:  # only inserts if empty
-        cur.execute("""
-                    INSERT INTO leaderboard (name, score)
-                    VALUES ('Amber', 100),
-                           ('Julie', 80),
-                           ('Alyssa', 60);
-                    """)
+    # cur.execute("SELECT COUNT(*) FROM leaderboard;")
+    # if cur.fetchone()[0] == 0:  # only inserts if empty
+    #     cur.execute("""
+    #                 INSERT INTO leaderboard (name, score)
+    #                 VALUES ('Amber', 100),
+    #                        ('Julie', 80),
+    #                        ('Alyssa', 60);
+    #                 """)
 
     conn.commit()
     cur.close()
@@ -69,7 +69,15 @@ def dashboard():
 def getleaderboard():
     """
     Get the leaderboard
+    Optional query parameter:
+      type: "code", "comment", or "overall" (default: "overall")
     ---
+    parameters:
+      - name: type
+        in: query
+        type: string
+        required: false
+        description: Leaderboard type ("code", "comment", "overall")
     responses:
       200:
         description: Returns leaderboard
@@ -90,9 +98,21 @@ def getleaderboard():
                       score:
                         type: integer
     """
+    leaderboard_type = request.args.get("type", "overall").lower()
+    if leaderboard_type == ["code", "comment", "overall"]:
+        return jsonify({"error": "Invalid leaderboard type"}), 400
+
     conn = getdbconnection()
     cur = conn.cursor()
-    cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
+
+    if leaderboard_type == "code":
+        cur.execute("SELECT id, githubId, code_score FROM users ORDER BY code_score DESC;")
+    if leaderboard_type == "comment":
+        cur.execute("SELECT id, githubId, comment_score FROM users ORDER BY comment_score DESC;")
+    if leaderboard_type == "overall":
+        cur.execute("SELECT id, githubId, (code_score + comment_score) AS total_score FROM users ORDER BY total_score DESC;")
+
+    # cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -112,16 +132,19 @@ def addLeaderboardEntry():
             schema:
               type: object
               required:
-                - name
+                - githubId
                 - score
               properties:
-                name:
+                githubId:
                   type: string
-                score:
+                comment_score:
+                  type: integer
+                code_score:
                   type: integer
               example:
-                name: "name"
-                score: 0
+                githubId: "githubId"
+                comment_score: 0
+                code_score: 0
         responses:
           201:
             description: New entry created
@@ -132,15 +155,16 @@ def addLeaderboardEntry():
                   type: integer
         """
     data = request.get_json()
-    name = data.get('name')
-    score = data.get('score')
+    github_id = data.get('githubId')
+    comment_score = data.get('comment_score')
+    code_score =data.get('code_score')
 
     conn = getdbconnection()
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO leaderboard (name, score) VALUES (%s, %s) RETURNING id;",
-                (name, score)
+                "INSERT INTO users (githubId, comment_score, code_score) VALUES (%s, %s, %s) RETURNING id;",
+                (github_id, comment_score, code_score)
             )
             new_id = cur.fetchone()[0]
         conn.commit()
@@ -181,7 +205,7 @@ def deleteLeaderboardEntry(entry_id):
     conn = getdbconnection()
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM leaderboard WHERE id = %s RETURNING id;", (entry_id,))
+            cur.execute("DELETE FROM users WHERE id = %s RETURNING id;", (entry_id,))
             deleted = cur.fetchone()
         conn.commit()
     finally:
@@ -206,65 +230,56 @@ def updateLeaderboardEntry(entry_id):
       - in: body
         name: body
         required: true
-        description: Fields to update (at least one name/score)
+        description: Fields to update (at least one githubId/code_score/comment_score)
         schema:
           type: object
           properties:
-            name:
+            githubId:
               type: string
-              example: "Name"
-            score:
+              example: "githubId"
+            code_score:
+              type: integer
+              example: 0
+            comment_score:
               type: integer
               example: 0
     responses:
       200:
         description: Entry updated successfully
-        schema:
-          type: object
-          properties:
-            message:
-              type: string
-              example: Entry updated successfully
       400:
         description: Invalid input
-        schema:
-          type: object
-          properties:
-            error:
-              type: string
-              example: At least one of name or score is required
       404:
         description: Entry not found
-        schema:
-          type: object
-          properties:
-            error:
-              type: string
-              example: Not found
     """
     data = request.get_json(force=True)
-    name = data.get("name")
-    score = data.get("score")
+    github_id = data.get("githubId")
+    code_score = data.get("code_score")
+    comment_score = data.get("comment_score")
 
-    if name is None and score is None:
-        return jsonify({"error": "At least one name/score is required"}), 400
+    if github_id is None and code_score is None and comment_score is None:
+        return jsonify({"error": "At least one field must be provided"}), 400
+
+    updates = []
+    values = []
+
+    if github_id is not None:
+        updates.append("githubId = %s")
+        values.append(github_id)
+    if code_score is not None:
+        updates.append("code_score = %s")
+        values.append(code_score)
+    if comment_score is not None:
+        updates.append("comment_score = %s")
+        values.append(comment_score)
+
+    set_clause = ", ".join(updates)
+    values.append(entry_id)
+
+    query = f"UPDATE users SET {set_clause} WHERE id = %s RETURNING id;"
 
     conn = getdbconnection()
     try:
         with conn.cursor() as cur:
-            query = "UPDATE leaderboard SET "
-            values = []
-            if name is not None:
-                query += "name = %s"
-                values.append(name)
-            if score is not None:
-                if values:
-                    query += ", "
-                query += "score = %s"
-                values.append(score) #parameteize Query  so no SQL injections
-                query += " WHERE id = %s RETURNING id;"
-            values.append(entry_id)
-
             cur.execute(query, tuple(values))
             updated = cur.fetchone()
             conn.commit()
