@@ -13,7 +13,13 @@ interface LeaderboardEntry {
   img: "https://i.pravatar.cc/100?img=5";
 
 }
-
+async function addUserToLeaderboard(user: any) {
+    await fetch("/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ githubId: user.nickname, comment_score: 0, code_score: 0 }),
+    });
+}
 function DashboardPage() {
     const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
     const { user, isAuthenticated, isLoading } = useAuth0();
@@ -23,6 +29,12 @@ function DashboardPage() {
     tonePositive: 87,
     technicalAccuracy: 92,
     });
+
+    useEffect(() => {
+        if(isAuthenticated && user){
+            addUserToLeaderboard(user);
+        }
+    }, [isAuthenticated, user]);
 
     const heatData = {
       '2025-02-14': 2,
@@ -73,7 +85,7 @@ function DashboardPage() {
   ];
 
 
-    useEffect(() => {
+ useEffect(() => {
         fetch("/leaderboard")
           .then((res) => res.json())
           .then((res) => {
@@ -83,6 +95,8 @@ function DashboardPage() {
             setTopMembers(sorted.slice(0, 3)); // only keep top 3
           });
     }, []);
+
+
 
 
 

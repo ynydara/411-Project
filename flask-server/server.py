@@ -99,7 +99,7 @@ def getleaderboard():
                         type: integer
     """
     leaderboard_type = request.args.get("type", "overall").lower()
-    if leaderboard_type == ["code", "comment", "overall"]:
+    if leaderboard_type not in ["code", "comment", "overall"]:
         return jsonify({"error": "Invalid leaderboard type"}), 400
 
     conn = getdbconnection()
@@ -135,14 +135,11 @@ def addLeaderboardEntry():
                 - githubId
                 - score
               properties:
-                githubId:
-                  type: string
                 comment_score:
                   type: integer
                 code_score:
                   type: integer
               example:
-                githubId: "githubId"
                 comment_score: 0
                 code_score: 0
         responses:
@@ -163,10 +160,22 @@ def addLeaderboardEntry():
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (githubId, comment_score, code_score) VALUES (%s, %s, %s) RETURNING id;",
-                (github_id, comment_score, code_score)
+                """
+                INSERT INTO users (githubId, comment_score, code_score)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (githubId) DO NOTHING
+                
+                RETURNING id;
+    """,
+    (github_id, comment_score, code_score)
             )
-            new_id = cur.fetchone()[0]
+
+            new_row = cur.fetchone()
+
+            if new_row is None:
+                cur.execute("SELECT id FROM users WHERE githubId = %s;", (github_id,))
+                new_row = cur.fetchone()
+            new_id = new_row[0]
         conn.commit()
     finally:
         conn.close()
