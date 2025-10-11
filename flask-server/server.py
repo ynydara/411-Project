@@ -396,6 +396,51 @@ def addAchievements():
         conn.close()
 
     return jsonify({"id": new_row}), 201
+
+@app.route('/api/achievements/<int:entry_id>', methods=['DELETE'])
+def deleteachievements(entry_id):
+    """
+    Delete an achievement
+    ---
+    parameters:
+      - name: entry_id
+        in: path
+        type: integer
+        required: true
+        description: ID to delete
+    responses:
+      200:
+        description: Entry successfully deleted
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Entry deleted successfully
+      404:
+        description: Entry not found
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Entry not found
+    """
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM awards WHERE id = %s RETURNING id;", (entry_id,))
+            deleted = cur.fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+
+    if deleted:
+        return jsonify({"message": "Entry deleted successfully"}), 200
+    else:
+        return jsonify({"error": "Entry not found"}), 404
+
+#=============== give acievements to users section =================
 @app.route('/api/users/<int:user_id>/achievements', methods=['GET'])
 def get_user_achievements(user_id):
     """
