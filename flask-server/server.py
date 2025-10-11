@@ -65,8 +65,8 @@ def dashboard():
     return "Dashboard"
 
 
-@app.route('/api/leaderboard', methods=['GET'])
-def getleaderboard():
+@app.route('/api/users', methods=['GET'])
+def getUsers():
     """
     Get the leaderboard
     Optional query parameter:
@@ -119,8 +119,8 @@ def getleaderboard():
     data = [{"id" : r[0] , "name": r[1], "score": r[2]} for r in rows]
     return jsonify({"leaderboard": data})
 
-@app.route('/api/leaderboard', methods=['POST'])
-def addLeaderboardEntry():
+@app.route('/api/users', methods=['POST'])
+def addUser():
     """
         Add a new entry to the leaderboard
         ---
@@ -182,10 +182,10 @@ def addLeaderboardEntry():
 
     return jsonify({"id": new_id}), 201
 
-@app.route('/api/leaderboard/<int:entry_id>', methods=['DELETE'])
-def deleteLeaderboardEntry(entry_id):
+@app.route('/api/users/<int:entry_id>', methods=['DELETE'])
+def deleteUser(entry_id):
     """
-    Delete a leaderboard entry ID
+    Delete a user
     ---
     parameters:
       - name: entry_id
@@ -225,10 +225,10 @@ def deleteLeaderboardEntry(entry_id):
     else:
         return jsonify({"error": "Entry not found"}), 404
 
-@app.route('/api/leaderboard/<int:entry_id>', methods=['PUT'])
-def updateLeaderboardEntry(entry_id):
+@app.route('/api/user/<int:entry_id>', methods=['PUT'])
+def updateUser(entry_id):
     """
-    Update a leaderboard entry by ID
+    Update a user
     ---
     parameters:
       - name: entry_id
