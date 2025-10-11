@@ -28,7 +28,7 @@ services:
       - ts-client #remove if need to remove. Flask will wait for ts-client
       - postgres   # Flask waits for PostgreSQL
     environment:
-      DATABASE_URL: postgres://user:password@postgres:5432/mydbd
+      DATABASE_URL: postgres://user:password@postgres:5432/mydb
 
   postgres:
     image: postgres:15
@@ -42,9 +42,10 @@ services:
       - "5432:5432"   # optional, for host access
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./flask-server/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - appnet
+
 
 networks:
   appnet:
