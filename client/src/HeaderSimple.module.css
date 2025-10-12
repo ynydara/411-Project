@@ -1,0 +1,40 @@
+.header {
+    height: 56px;
+    margin-bottom: 120px;
+  /* Light mode fallback: var(--mantine-color-gray-3) */
+  /* Dark mode fallback: var(--mantine-color-dark-4) */
+}
+
+
+.inner {
+    height: 56px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.link {
+    line-height: 1;
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-family: "Arial", sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: black;
+}
+
+
+.link:hover {
+  background-color: #f0f0f0;  /* hover effect */
+  color: #222;
+}
+
+
+
+
+.link[data-active] {
+    background-color: lightblue;
+    color: white;
+    border-radius: 3px;
+}

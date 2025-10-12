@@ -30,6 +30,16 @@ services:
     environment:
       DATABASE_URL: postgres://user:password@postgres:5432/mydb
 
+  ai-service:
+    build:
+      context: ./flask-server/ai
+    container_name: ai-service
+    command: uvicorn aiapp:app --host 0.0.0.0 --port 8000
+    # No prots stays internal
+    volumes:
+      - ./flask-server/ai:/app
+
+
   postgres:
     image: postgres:15
     container_name: postgres

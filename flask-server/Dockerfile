@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Use a slim Python base image for both builder and final stages
-FROM python:3.13-slim AS base
+FROM python:3.11-slim AS base
 WORKDIR /app
 
 # Builder stage: install dependencies in a virtual environment
