@@ -11,9 +11,9 @@ import LoginPage from "./LoginPage";
 import AuthLogin from "./authLogin";
 import AuthProfile from "./authProfile";
 import AuthLogout from "./authLogout";
+import PrInputPage from "./PullRequest";
 
-
-import { Burger, Container, Group } from '@mantine/core';
+import { Burger, Container, Group, Button } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 
 import classes from './HeaderSimple.module.css';
@@ -48,7 +48,17 @@ export function HeaderSimple() {
 
         <Group gap={5} visibleFrom="xs" ml="auto">
           {items}
+          <Button
+              component={Link}
+              to="/input"
+              variant="filled"
+              color="blue"
+              ml="md"
+          >
+              + New PR
+          </Button>
         </Group>
+
 
         <Burger opened={opened} onClick={toggle} hiddenFrom="xs" size="sm" />
       </Container>
@@ -69,6 +79,7 @@ function App() {
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/input" element={<PrInputPage />} />
       </Routes>
     </Router>
     );
