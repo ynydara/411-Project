@@ -32,7 +32,7 @@
 }
 
 .card-item {
-  background-color: white;
+  background-color: #fcfdff;
   padding: 15px 20px;
   border-radius: 10px;
   width: 25%;
@@ -43,7 +43,7 @@
 
 /* Page container for content */
 .page-container {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 40px auto;
   padding: 0 20px;
   display: flex;
@@ -52,17 +52,36 @@
   gap: 10px;
 }
 
+.dashboard-page-container {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+
 .envoc-green {
   background-color: #b0d039;
 }
 
 .nav-bar {
-  background-color: #ffffff;
-  height: 10px;
+  background-color: #fcfdff;
+  height: 60px;
   font-size: 1.5rem;
   text-align: center;
   align-items: center;
 }
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #fcfdff;
+  font-family: Arial, sans-serif;
+}
+
 
 .welcome-box {
   text-align: center;
@@ -78,14 +97,19 @@
 .settings-page {
   margin: 40px auto;
   display: flex;
-  align-items: left;
+  align-items: flex-start;
+
 }
 
 .profile-page {
   margin: 40px auto;
-  display: flex;
-  align-items: left;
+  align-items: center;
+  text-align: center;
+  padding: 0 50px;
 }
+
+
+
 
 @keyframes App-logo-spin {
   from {

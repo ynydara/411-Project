@@ -5,6 +5,7 @@
   "proxy": "http://localhost:5000",
   "dependencies": {
     "@auth0/auth0-react": "^2.5.0",
+    "@mantine/charts": "^8.3.3",
     "@mantine/core": "^8.2.0",
     "@mantine/form": "^8.2.0",
     "@mantine/hooks": "^8.2.0",
