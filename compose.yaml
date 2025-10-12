@@ -56,8 +56,10 @@ services:
       - "5432:5432"   # optional, for host access
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./flask-server/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - appnet
+
 
 networks:
   appnet:
