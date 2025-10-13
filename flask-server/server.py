@@ -563,6 +563,39 @@ def insights():
 def settings():
     return "Settings"
 
+ai_url = "http://ai-service:8000/"
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    data = request.json
+
+    try:
+        resp = requests.post(ai_url, json=data, timeout=60)
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/classify', methods=['POST'])
+def classify():
+    data = request.json
+
+    try:
+        resp = requests.post(ai_url, json=data, timeout=60)
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+@app.route('/review', methods=['POST'])
+def review():
+    data = request.json
+
+    try:
+        resp = requests.post(ai_url, json=data, timeout=60)
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     initdb()
