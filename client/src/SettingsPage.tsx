@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { Container, Title, Tabs, TextInput, PasswordInput, Switch, Button, Card, Group, Stack, Flex } from "@mantine/core";
 
 import AuthLogout from "./authLogout";
-import AuthProfile from "./authProfile";
 import {useAuth0} from "@auth0/auth0-react";
 
 function SettingsPage() {

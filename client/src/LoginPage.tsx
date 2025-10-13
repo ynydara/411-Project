@@ -1,7 +1,6 @@
 import "./App.css";
 import React, { useEffect, useState } from "react";
 import { IconTrophy } from "@tabler/icons-react";
-import AuthLogin from "./authLogin";
 import {useAuth0} from "@auth0/auth0-react";
 import { Text, Card, Center, Button, Container, Group, Stack, Avatar, Badge } from "@mantine/core";
 import '@mantine/core/styles.css';

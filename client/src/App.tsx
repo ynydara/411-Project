@@ -2,28 +2,22 @@ import "./App.css";
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Link} from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Card, Text, Table, Image, Flex, AspectRatio, Button, Loader, Center, Avatar } from "@mantine/core";
+import { Card, Text, Table, Image, Flex, AspectRatio,Loader, Center, Avatar, Burger, Container, Group, Button } from "@mantine/core";
 
 import LeaderboardPage from "./LeaderboardPage";
 import DashboardPage from "./DashboardPage";
-import SettingsPage from "./SettingsPage";
 import AchievementsPage from "./AchievementsPage";
-import LoginPage from "./LoginPage";
-import AuthLogin from "./authLogin";
-import AuthProfile from "./authProfile";
 import AuthLogout from "./authLogout";
 import PrInputPage from "./PullRequest";
-
-import { Burger, Container, Group, Button } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 
 import classes from './HeaderSimple.module.css';
+import LoginPage from "./LoginPage";
 
 const links = [
   { link: '/dashboard', label: 'Dashboard' },
   { link: '/leaderboard', label: 'Leaderboard' },
-  { link: '/profile', label: 'My Profile' },
-  { link: '/settings', label: 'Settings' },
+    { link: '/achievements', label: 'Achievements'}
 ];
 
 export function HeaderSimple() {
@@ -73,20 +67,16 @@ export function HeaderSimple() {
 function App() {
   const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
 
-  if (isLoading) {
-    return <Center>
-            <Loader color="indigo" size="xl" />
-        </Center>;
-  }
+  // if (isLoading) {
+  //   return <Center>
+  //           <Loader color="indigo" size="xl" />
+  //       </Center>;
+  // }
   return !isAuthenticated ? (
      <Router>
-      <div>
-        <div className="nav-bar">
-          <nav>
-            <Link to="/dashboard">Dashboard</Link> | <Link to="/leaderboard">Leaderboard</Link> | <Link to="/profile">My Profile</Link> | <Link to="/settings">Settings</Link>
-          </nav>
-        </div>
-      </div>
+         <Routes>
+           <Route path="/" element={<LoginPage/>}/>
+         </Routes>
       </Router>
   ) : user ? (
           <Router>
@@ -107,11 +97,9 @@ function App() {
               </Flex>
 
       <Routes>
-        <Route path="/" element={<LoginPage />}/>
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/" element={<DashboardPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/achievements" element={<AchievementsPage/>}/>
       </Routes>
      </Router>
   ) : null;
