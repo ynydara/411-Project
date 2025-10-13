@@ -24,7 +24,6 @@ root.render(
         <MantineProvider>
             <Auth0Provider
                 domain= {domain}
-                // clientId="xs6IRfRrY1fMAtazbGF5uA25lWsAIbDs"
                 clientId={clientId}
                 authorizationParams={{
                     redirect_uri: window.location.origin,

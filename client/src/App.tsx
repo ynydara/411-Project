@@ -44,7 +44,7 @@ function App() {
                 >
                   <Link to="/">Dashboard</Link>
                   <Link to="/leaderboard">Leaderboard</Link>
-                  <Link to="/achievements">Acheivements</Link>
+                  <Link to="/achievements">Achievements</Link>
                   <AuthLogout></AuthLogout>
                   <Avatar src={user.picture} />
               </Flex>
