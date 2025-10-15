@@ -13,6 +13,7 @@ import { useDisclosure } from '@mantine/hooks';
 
 import classes from './HeaderSimple.module.css';
 import LoginPage from "./LoginPage";
+import GitHubIconLink from "./GitHubIconLink";
 
 const links = [
   { link: '/dashboard', label: 'Dashboard' },
@@ -93,6 +94,7 @@ function App() {
                   <Link to="/leaderboard">Leaderboard</Link>
                   <Link to="/achievements">Achievements</Link>
                   <AuthLogout></AuthLogout>
+                  <GitHubIconLink url="https://github.com" size={40} />
                   <Avatar src={user.picture} />
               </Flex>
 

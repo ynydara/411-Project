@@ -239,13 +239,6 @@ function DashboardPage() {
               Try suggesting alternatives instead of just pointing out problems — it boosts
               helpfulness scores by 15%.
             </Text>
-
-            <Text size="sm" mt="md">
-              Integrations:{" "}
-              <Text span c="blue" style={{ cursor: "pointer" }}>
-                GitHub
-              </Text>{" "}
-            </Text>
           </Card>
         </Grid.Col>
       </Grid>
