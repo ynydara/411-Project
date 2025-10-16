@@ -1,8 +1,9 @@
+
 from flask import Flask, jsonify, request
 import psycopg2
 from flasgger import Swagger
-# from flask_cors import CORS
-# CORS(app)
+from flask_cors import CORS
+
 # import jose import jwt
 import requests
 
@@ -53,6 +54,7 @@ def getdbconnection():
 
 app = Flask(__name__)
 swagger = Swagger(app)
+CORS(app, origins=["http://localhost:3000"])
 
 #empty route/login screen
 @app.route('/api/')
@@ -563,35 +565,36 @@ def insights():
 def settings():
     return "Settings"
 
-ai_url = "http://ai-service:8000/"
 
-@app.route('/analyze', methods=['POST'])
+ai_url ="http://ai-service:8000"
+
+@app.route('/api/analyze', methods=['POST'])
 def analyze():
     data = request.json
 
     try:
-        resp = requests.post(ai_url, json=data, timeout=60)
+        resp = requests.post(f"{ai_url}/analyze", json=data, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/classify', methods=['POST'])
-def classify():
-    data = request.json
-
+@app.route('/api/classify', methods=['POST'])
+def classify_route():
+    data = request.json  # { "text": "some PR description" }
     try:
-        resp = requests.post(ai_url, json=data, timeout=60)
+        resp = requests.post(f"{ai_url}/classify", json=data, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
+        # send AI's response back to frontend
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
-@app.route('/review', methods=['POST'])
+@app.route('/api/review', methods=['POST'])
 def review():
     data = request.json
 
     try:
-        resp = requests.post(ai_url, json=data, timeout=60)
+        resp = requests.post(f"{ai_url}/review", json=data, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
     except requests.exceptions.RequestException as e:

@@ -6,61 +6,96 @@ from torch.nn import functional as F
 
 app = FastAPI(title="AI Service")
 
-CLASSIFER_MODEL = "Akirk1213/review-classification"
-clf_tokenizer = AutoTokenizer.from_pretrained(CLASSIFER_MODEL)
-clf_model = AutoModelForSequenceClassification.from_pretrained(CLASSIFER_MODEL)
+# --- Load Models ---
+CLASSIFIER_MODEL = "Akirk1213/review-classification"
+clf_tokenizer = AutoTokenizer.from_pretrained(CLASSIFIER_MODEL)
+clf_model = AutoModelForSequenceClassification.from_pretrained(CLASSIFIER_MODEL)
 
 CODEREVIEWER_MODEL = "microsoft/codereviewer"
 rev_tokenizer = AutoTokenizer.from_pretrained(CODEREVIEWER_MODEL)
 rev_model = AutoModelForSeq2SeqLM.from_pretrained(CODEREVIEWER_MODEL)
 
-# Request Model
+# --- Request schema ---
 class TextRequest(BaseModel):
     text: str
 
+# --- Utility: Detect if input looks like code ---
+def is_code_like(text: str) -> bool:
+    code_signals = [";", "{", "}", "def ", "class ", "function ", "=>", "import "]
+    return any(sig in text for sig in code_signals)
+
+
+# --- Classifier ---
 @app.post("/classify")
 def classify(req: TextRequest):
-    inputs = clf_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        outputs = clf_model(**inputs)
-    probs = F.softmax(outputs.logits, dim=-1)[0]
-    pred_id = probs.argmax().item()
-    labels = clf_model.config.id2label
-    return {
-        "text": req.text,
-        "prediction": labels[pred_id],
-        "confidence": float(probs[pred_id]),
-        "scores": {labels[i]: float(p) for i, p in enumerate(probs)}
+    try:
+        inputs = clf_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
+        with torch.no_grad():
+            outputs = clf_model(**inputs)
+        probs = F.softmax(outputs.logits, dim=-1)[0]
+        pred_id = probs.argmax().item()
+        labels = clf_model.config.id2label
 
-    }
+        return {
+            "text": req.text,
+            "prediction": labels[pred_id],
+            "confidence": float(probs[pred_id]),
+            "scores": {labels[i]: float(p) for i, p in enumerate(probs)},
+            "source": "classifier"
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# --- Code Reviewer ---
 @app.post("/review")
 def review(req: TextRequest):
-    inputs = rev_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        tokens = rev_model.generate(
-            **inputs, max_length=200, num_beams=5, early_stopping=True
-        )
-    review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
-    return {"text": req.text, "review": review_text}
-@app.post("/anaylze")
-def anaylze(req: TextRequest):
-    # Classify
-    inputs = clf_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        clf_outputs = clf_model(**inputs)
-    clf_probs = F.softmax(clf_outputs.logits, dim=-1)[0]
-    clf_pred_id = clf_probs.argmax().item()
-    labels = clf_model.config.id2label
-    classification = {
-        "prediction": labels[clf_pred_id],
-        "confidence": float(clf_probs[clf_pred_id]),
-        "scores": {labels[i]: float(p) for i, p in enumerate(clf_probs)}
-    }
-    # Review
-    rev_inputs = rev_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        rev_outputs = rev_model.generate(
-            **rev_inputs, max_length=200, num_beams=5, early_stopping=True
-        )
-    review_text = rev_tokenizer.decode(rev_outputs[0], skip_special_tokens=True)
-    return {"text": req.text, "review": review_text}
+    try:
+        inputs = rev_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
+        with torch.no_grad():
+            tokens = rev_model.generate(
+                **inputs, max_length=200, num_beams=5, early_stopping=True
+            )
+        review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
+
+        # Clean artifacts
+        review_text = review_text.replace("<e0>", "").replace("</s>", "").strip()
+
+        return {"text": req.text, "review": review_text, "source": "codereviewer"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# --- Auto Analyze (smart routing) ---
+@app.post("/analyze")
+def analyze(req: TextRequest):
+    text = req.text.strip()
+
+    if is_code_like(text):
+        # Route to CodeReviewer
+        inputs = rev_tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+        with torch.no_grad():
+            tokens = rev_model.generate(
+                **inputs, max_length=200, num_beams=5, early_stopping=True
+            )
+        review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
+        review_text = review_text.replace("<e0>", "").replace("</s>", "").strip()
+
+        return {"text": text, "review": review_text, "source": "codereviewer"}
+
+    else:
+        # Route to Classifier
+        inputs = clf_tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+        with torch.no_grad():
+            outputs = clf_model(**inputs)
+        probs = F.softmax(outputs.logits, dim=-1)[0]
+        pred_id = probs.argmax().item()
+        labels = clf_model.config.id2label
+
+        return {
+            "text": text,
+            "prediction": labels[pred_id],
+            "confidence": float(probs[pred_id]),
+            "scores": {labels[i]: float(p) for i, p in enumerate(probs)},
+            "source": "classifier"
+        }

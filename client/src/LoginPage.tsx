@@ -20,7 +20,7 @@ const leaderboardData: LeaderBoardUser[] = [
     ];
 
 function LoginPage() {
-    const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
+    const { loginWithRedirect, logout, isAuthenticated, user, isLoading } = useAuth0();
 
     return (
     <>
