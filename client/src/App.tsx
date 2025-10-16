@@ -23,64 +23,49 @@ const links = [
 ];
 
 export function HeaderSimple() {
-    const {loginWithRedirect, logout, isAuthenticated, user} = useAuth0();
-    const [opened, {toggle}] = useDisclosure(false);
-    const [active, setActive] = useState(links[0].link);
+  const { user } = useAuth0();
+  const [opened, { toggle }] = useDisclosure(false);
+  const [active, setActive] = useState(links[0].link);
 
+  const items = links.map((link) => (
+    <Link
+      key={link.label}
+      to={link.link}
+      className={classes.link}
+      data-active={active === link.link || undefined}
+      onClick={() => setActive(link.link)}
+    >
+      {link.label}
+    </Link>
+  ));
 
+  return (
+    <header className={classes.header}>
+      <Container size="md" className={classes.inner}>
+        <Group gap={5} ml="auto">
+          {items}
 
-        const items = links.map((link) => (
-            <Link
-                key={link.label}
-                to={link.link}
-                className={classes.link}
-                data-active={active === link.link || undefined}
-                onClick={() => setActive(link.link)}
-            >
-                {link.label}
+          <Button component={Link} to="/input" variant="filled" color="blue" ml="md">
+            + New PR
+          </Button>
 
-            </Link>
-        ));
+          <GitHubIconLink url="https://github.com" size={40} />
 
-            return (
-                <header className={classes.header}>
-                    <Container size="md" className={classes.inner}>
-
-                        <Group gap={5} visibleFrom="xs" ml="auto">
-                            {/*<Avatar src={user.picture}/>*/}
-                            {items}
-                            <Button
-                                component={Link}
-                                to="/input"
-                                variant="filled"
-                                color="blue"
-                                ml="md"
-                            >
-                                + New PR
-
-
-                            </Button>
-                            {/*<Button*/}
-                            {/*    component={Link}*/}
-                            {/*    to="./authLogout"*/}
-                            {/*    variant="filled"*/}
-                            {/*    color="blue"*/}
-                            {/*    ml="md"*/}
-                            {/*>*/}
-                            {/*    <AuthLogout*/}
-
-
-                            {/*</Button>*/}
-                            <AuthLogout></AuthLogout>
-
-                        </Group>
-
-
-                        <Burger opened={opened} onClick={toggle} hiddenFrom="xs" size="sm"/>
-                    </Container>
-                </header>
-            );
-        }
+          {user && (
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Avatar src={user.picture} radius="xl" />
+              </Menu.Target>
+              <Menu.Dropdown>
+                <AuthLogout />
+              </Menu.Dropdown>
+            </Menu>
+          )}
+        </Group>
+      </Container>
+    </header>
+  );
+}
 
 
 function App() {
@@ -108,20 +93,21 @@ function App() {
                   direction="row"
                   wrap="wrap"
                 >
-                  <Link to="/">Dashboard</Link>
-                  <Link to="/leaderboard">Leaderboard</Link>
-                  <Link to="/achievements">Achievements</Link>
-                  <GitHubIconLink url="https://github.com" size={40} />
-                  <Menu shadow="md" width={200}>
-                      <Menu.Target>
-                            <Avatar src={user.picture} />
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                          <Menu.Label>
-                              <AuthLogout></AuthLogout>
-                          </Menu.Label>
-                      </Menu.Dropdown>
-                  </Menu>
+                  {/*<Link to="/">Dashboard</Link>*/}
+                  {/*<Link to="/leaderboard">Leaderboard</Link>*/}
+                  {/*<Link to="/achievements">Achievements</Link>*/}
+                  <HeaderSimple></HeaderSimple>
+                  {/*<GitHubIconLink url="https://github.com" size={40} />*/}
+                  {/*<Menu shadow="md" width={200}>*/}
+                  {/*    <Menu.Target>*/}
+                  {/*          <Avatar src={user.picture} />*/}
+                  {/*    </Menu.Target>*/}
+                  {/*    <Menu.Dropdown>*/}
+                  {/*        <Menu.Label>*/}
+                  {/*            <AuthLogout></AuthLogout>*/}
+                  {/*        </Menu.Label>*/}
+                  {/*    </Menu.Dropdown>*/}
+                  {/*</Menu>*/}
               </Flex>
 
       <Routes>

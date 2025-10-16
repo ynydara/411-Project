@@ -7,9 +7,9 @@ import '@mantine/charts/styles.css';
 import {useAuth0} from "@auth0/auth0-react";
 
 interface LeaderboardEntry {
-  name: string;
-  score: number;
-  img: "https://i.pravatar.cc/100?img=5";
+    name: string;
+    score: number;
+    img: "https://i.pravatar.cc/100?img=5";
 }
 interface Achievement {
   id: number;
