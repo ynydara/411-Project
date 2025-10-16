@@ -186,7 +186,6 @@ def addUser():
 
     return jsonify({"id": new_id}), 201
 
-
 @app.route('/api/users/<int:entry_id>', methods=['DELETE'])
 def deleteUser(entry_id):
     """
