@@ -337,7 +337,7 @@ def getAchievements():
     cur.close()
     conn.close()
     data = [{"id" : r[0] , "awardname": r[1], "description": r[2]} for r in rows]
-    return jsonify({"leaderboard": data})
+    return jsonify({"awards": data})
 
 
 @app.route('/api/achievements', methods=['POST'])
@@ -551,9 +551,29 @@ def give_user_achievement(user_id):
 
     return jsonify({"message": "Achievement granted"}), 201
 
-@app.route('/api/insights')
-def insights():
-    return "Insights"
+
+
+@app.route('/api/users/by-nickname/<nickname>/achievements', methods=['GET'])
+def achievements_by_nickname(nickname):
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT a.id, a.awardname, a.description
+                FROM awards a
+                JOIN user_awards ua ON a.id = ua.awardId
+                JOIN users u ON u.id = ua.userId
+                WHERE u.githubId = %s;
+                """,
+                (nickname,)
+            )
+            rows = cur.fetchall()
+            data = [{"id": r[0], "awardname": r[1], "description": r[2]} for r in rows]
+            return jsonify(data)
+    finally:
+        conn.close()
+
 
 # @app.route('/api/achievements')
 # def profile():
