@@ -2,7 +2,7 @@ import "./App.css";
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Link} from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Card, Text, Table, Image, Flex, AspectRatio,Loader, Center, Avatar, Burger, Container, Group, Button } from "@mantine/core";
+import { Flex, AspectRatio,Loader, Center, Avatar, Burger, Container, Group, Button, Title, Menu } from "@mantine/core";
 
 import LeaderboardPage from "./LeaderboardPage";
 import DashboardPage from "./DashboardPage";
@@ -93,9 +93,17 @@ function App() {
                   <Link to="/">Dashboard</Link>
                   <Link to="/leaderboard">Leaderboard</Link>
                   <Link to="/achievements">Achievements</Link>
-                  <AuthLogout></AuthLogout>
                   <GitHubIconLink url="https://github.com" size={40} />
-                  <Avatar src={user.picture} />
+                  <Menu shadow="md" width={200}>
+                      <Menu.Target>
+                            <Avatar src={user.picture} />
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                          <Menu.Label>
+                              <AuthLogout></AuthLogout>
+                          </Menu.Label>
+                      </Menu.Dropdown>
+                  </Menu>
               </Flex>
 
       <Routes>

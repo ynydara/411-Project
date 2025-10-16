@@ -110,10 +110,10 @@ function LeaderboardPage() {
                 >
                   <thead style={{ backgroundColor: "#f2f2f2" }}>
                     <tr>
-                      <th style={{ width: "5%", textAlign: "center" }}>#</th>
-                      <th style={{ width: "45%" }}>User Name</th>
-                      <th style={{ width: "20%", textAlign: "center" }}>Badges</th>
-                      <th style={{ width: "20%", textAlign: "right" }}>Points</th>
+                      <th style={{ width: "10%", textAlign: "center" }}>#</th>
+                      <th style={{ width: "60%" }}>User Name</th>
+                        {/*   <th style={{ width: "20%", textAlign: "center" }}>Badges</th>  5% 45% 20% 20$ */}
+                      <th style={{ width: "30%", textAlign: "center" }}>Points</th>
                     </tr>
                   </thead>
 
@@ -168,13 +168,13 @@ function LeaderboardPage() {
                             </Group>
                           </td>
 
-                          {/* Badges */}
+                          {/* Badges
                           <td style={{ textAlign: "center" }}>
-                            {Math.floor(Math.random() * 6)} {/* placeholder */}
-                          </td>
+                            {Math.floor(Math.random() * 6)}
+                          </td> */}
 
                           {/* Points */}
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>
+                          <td style={{ textAlign: "center", fontWeight: 600 }}>
                             {member.score}
                           </td>
                         </tr>
@@ -204,10 +204,10 @@ function LeaderboardPage() {
                 >
                   <thead style={{ backgroundColor: "#f2f2f2" }}>
                     <tr>
-                      <th style={{ width: "5%", textAlign: "center" }}>#</th>
-                      <th style={{ width: "45%" }}>User Name</th>
-                      <th style={{ width: "20%", textAlign: "center" }}>Badges</th>
-                      <th style={{ width: "20%", textAlign: "right" }}>Points</th>
+                      <th style={{ width: "10%", textAlign: "center" }}>#</th>
+                      <th style={{ width: "60%" }}>User Name</th>
+                        {/*     <th style={{ width: "20%", textAlign: "center" }}>Badges</th> */}
+                      <th style={{ width: "30%", textAlign: "center" }}>Points</th>
                     </tr>
                   </thead>
 
@@ -262,13 +262,12 @@ function LeaderboardPage() {
                             </Group>
                           </td>
 
-                          {/* Badges */}
+                          {/* Badges
                           <td style={{ textAlign: "center" }}>
-                            {Math.floor(Math.random() * 6)} {/*  placeholder */}
-                          </td>
-
+                            {Math.floor(Math.random() * 6)}
+                          </td> */}
                           {/* Points */}
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>
+                          <td style={{ textAlign: "center", fontWeight: 600 }}>
                             {member.score}
                           </td>
                         </tr>
@@ -298,10 +297,10 @@ function LeaderboardPage() {
                 >
                   <thead style={{ backgroundColor: "#f2f2f2" }}>
                     <tr>
-                      <th style={{ width: "5%", textAlign: "center" }}>#</th>
-                      <th style={{ width: "45%" }}>User Name</th>
-                      <th style={{ width: "20%", textAlign: "center" }}>Badges</th>
-                      <th style={{ width: "20%", textAlign: "right" }}>Points</th>
+                      <th style={{ width: "10%", textAlign: "center" }}>#</th>
+                      <th style={{ width: "60%" }}>User Name</th>
+                        {/*        <th style={{ width: "20%", textAlign: "center" }}>Badges</th> */}
+                      <th style={{ width: "30%", textAlign: "center" }}>Points</th>
                     </tr>
                   </thead>
 
@@ -345,7 +344,6 @@ function LeaderboardPage() {
                               <Text
                                 fw={500}
                                 component="a"
-                                href="#"
                                 style={{
                                   color: "#0077cc",
                                   textDecoration: "none",
@@ -356,13 +354,13 @@ function LeaderboardPage() {
                             </Group>
                           </td>
 
-                          {/* Badges */}
+                          {/* Badges
                           <td style={{ textAlign: "center" }}>
-                            {Math.floor(Math.random() * 6)} {/* placeholder */}
-                          </td>
+                            {Math.floor(Math.random() * 6)}
+                          </td> */}
 
                           {/* Points */}
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>
+                          <td style={{ textAlign: "center", fontWeight: 600 }}>
                             {member.score}
                           </td>
                         </tr>

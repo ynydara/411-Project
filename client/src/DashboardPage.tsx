@@ -139,7 +139,7 @@ function DashboardPage() {
             ))
             )}
             <Title order={3}>
-              Accomplishments
+              Achievements
             </Title>
             <Group mt="xs">
               <Badge color="orange">Constructive Commenter</Badge>
@@ -200,7 +200,7 @@ function DashboardPage() {
                     <Text size="sm" c="dimmed" mt="xs">
                       great suggestion • clarify • maybe
                     </Text>
-                    <DonutChart size={101} thickness={30} data={pieData1} />
+                    <DonutChart size={101} thickness={30} data={pieData1} withTooltip={false}/>
                  </Group>
               </Card>
             </Grid.Col>
@@ -211,7 +211,7 @@ function DashboardPage() {
                     <Text size="sm" c="dimmed" mt="xs">
                       “great suggestion” and “good point” are trending
                     </Text>
-                    <DonutChart size={101} thickness={30} data={pieData2} />
+                    <DonutChart size={101} thickness={30} data={pieData2} withTooltip={false}/>
                 </Group>
               </Card>
             </Grid.Col>
@@ -222,9 +222,9 @@ function DashboardPage() {
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Card shadow="sm" radius="md" p="lg">
             <Title order={3} mb="xs">Team Trends</Title>
-            <Text size="sm" c="dimmed">
+              {/*  <Text size="sm" c="dimmed">
               Avg review response time ↓ 12%
-            </Text>
+            </Text> */}
             <div>
                 <Heatmap data={heatData} startDate="2025-02-08" endDate="2025-05-08" rectSize={17}/>
             </div>
