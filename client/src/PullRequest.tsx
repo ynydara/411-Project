@@ -6,37 +6,57 @@ export default function AIAnalyzer() {
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleAnalyze = async () => {
-    setLoading(true);
-    setResponse(null);
+ const handleAnalyze = async () => {
+  setLoading(true);
+  setResponse(null);
 
-    try {
-      const res = await fetch("http://localhost:5000/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
-      });
+  try {
+    const res = await fetch("http://localhost:5000/api/analyze"
+        , {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: input }),
+    });
 
-      const data = await res.json();
-      console.log("AI Response:", data);
-
-      if (data.error) {
-        setResponse(" Error: " + data.error);
-      } else if (data.review) {
-        // Code reviewer response
-        setResponse(` Code Review:\n${data.review}`);
-      } else if (data.prediction) {
-        // Classifier response
-        setResponse(` Feedback: ${data.prediction} (${(data.confidence * 100).toFixed(1)}%)`);
-      } else {
-        setResponse("⚠️ Unexpected response from server.");
-      }
-    } catch (err: any) {
-      setResponse("⚠️ Something went wrong: " + err.message);
+    // Check if the response is OK
+    if (!res.ok) {
+      setResponse(`⚠️ Server returned ${res.status}: ${res.statusText}`);
+      return;
     }
 
+    // Try parsing JSON safely
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      setResponse("⚠️ Server returned invalid JSON.");
+      return;
+    }
+
+    console.log("AI Response:", data);
+
+    // Handle different response types
+    if (!data) {
+      setResponse("⚠️ Empty response from server.");
+    } else if (data.error) {
+      setResponse("⚠️ Error: " + data.error);
+    } else if (data.review) {
+      setResponse(`📝 Code Review:\n${data.review}`);
+    } else if (data.prediction) {
+      setResponse(
+        `💡 Feedback: ${data.prediction} (${(data.confidence * 100).toFixed(1)}%)`
+      );
+    } else {
+      setResponse("⚠️ Unexpected response from server.");
+    }
+  } catch (err: any) {
+    // Catch network or other unexpected errors
+    setResponse("⚠️ Something went wrong: " + err.message);
+  } finally {
     setLoading(false);
-   }
+  }
+};
+
 
 
   return (

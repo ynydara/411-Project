@@ -6,3 +6,4 @@ flask-server/Ai/GITHUB_TOKEN.env
 .venv/Lib/site-packages/torch/include/torch/csrc/distributed/c10d/Backend.hpp
 *.hpp
 .venv
+client/src/env.json
