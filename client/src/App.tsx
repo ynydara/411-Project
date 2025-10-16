@@ -17,7 +17,8 @@ import LoginPage from "./LoginPage";
 const links = [
   { link: '/', label: 'Dashboard' },
   { link: '/leaderboard', label: 'Leaderboard' },
-    { link: '/achievements', label: 'Achievements'}
+    { link: '/achievements', label: 'Achievements'},
+
 ];
 
 export function HeaderSimple() {
@@ -118,6 +119,7 @@ function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/achievements" element={<AchievementsPage/>}/>
+         <Route path="/input" element={<PrInputPage />} />
       </Routes>
      </Router>
 

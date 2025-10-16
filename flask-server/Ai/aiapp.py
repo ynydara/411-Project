@@ -26,7 +26,7 @@ def is_code_like(text: str) -> bool:
 
 
 # --- Classifier ---
-@app.post("/classify")
+@app.post("/api/classify")
 def classify(req: TextRequest):
     try:
         inputs = clf_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
@@ -48,7 +48,7 @@ def classify(req: TextRequest):
 
 
 # --- Code Reviewer ---
-@app.post("/review")
+@app.post("/api/review")
 def review(req: TextRequest):
     try:
         inputs = rev_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
@@ -67,7 +67,7 @@ def review(req: TextRequest):
 
 
 # --- Auto Analyze (smart routing) ---
-@app.post("/analyze")
+@app.post("/api/analyze")
 def analyze(req: TextRequest):
     text = req.text.strip()
 
