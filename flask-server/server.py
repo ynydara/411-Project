@@ -1,14 +1,13 @@
 from flask import Flask, jsonify, request
 import psycopg2
 from flasgger import Swagger
-# from flask_cors import CORS
-# CORS(app)
+from flask_cors import CORS
+import traceback
 # import jose import jwt
 import requests
 
 
-
-#run this only once pls
+# run this only once pls
 def initdb():
     conn = psycopg2.connect(
         host="postgres",
@@ -26,7 +25,6 @@ def initdb():
     #             );
     #             """)
 
-
     # cur.execute("DELETE FROM leaderboard;") #delete this at some point
     # cur.execute("SELECT COUNT(*) FROM leaderboard;")
     # if cur.fetchone()[0] == 0:  # only inserts if empty
@@ -41,7 +39,8 @@ def initdb():
     cur.close()
     conn.close()
 
-#this is the connection for da database
+
+# this is the connection for da database
 def getdbconnection():
     conn = psycopg2.connect(
         host="postgres",
@@ -51,10 +50,13 @@ def getdbconnection():
     )
     return conn
 
+
 app = Flask(__name__)
 swagger = Swagger(app)
+CORS(app, origins=["http://localhost:3000"])
 
-#empty route/login screen
+
+# empty route/login screen
 @app.route('/api/')
 def default():
     return "default"
@@ -110,14 +112,16 @@ def getUsers():
     if leaderboard_type == "comment":
         cur.execute("SELECT id, githubId, comment_score FROM users ORDER BY comment_score DESC;")
     if leaderboard_type == "overall":
-        cur.execute("SELECT id, githubId, (code_score + comment_score) AS total_score FROM users ORDER BY total_score DESC;")
+        cur.execute(
+            "SELECT id, githubId, (code_score + comment_score) AS total_score FROM users ORDER BY total_score DESC;")
 
     # cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    data = [{"id" : r[0] , "name": r[1], "score": r[2]} for r in rows]
+    data = [{"id": r[0], "name": r[1], "score": r[2]} for r in rows]
     return jsonify({"leaderboard": data})
+
 
 @app.route('/api/users', methods=['POST'])
 def addUser():
@@ -155,7 +159,7 @@ def addUser():
     data = request.get_json()
     github_id = data.get('githubId')
     comment_score = data.get('comment_score')
-    code_score =data.get('code_score')
+    code_score = data.get('code_score')
 
     conn = getdbconnection()
     try:
@@ -163,12 +167,11 @@ def addUser():
             cur.execute(
                 """
                 INSERT INTO users (githubId, comment_score, code_score)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (githubId) DO NOTHING
-                
+                VALUES (%s, %s, %s) ON CONFLICT (githubId) DO NOTHING
+
                 RETURNING id;
-    """,
-    (github_id, comment_score, code_score)
+                """,
+                (github_id, comment_score, code_score)
             )
 
             new_row = cur.fetchone()
@@ -182,6 +185,7 @@ def addUser():
         conn.close()
 
     return jsonify({"id": new_id}), 201
+
 
 @app.route('/api/users/<int:entry_id>', methods=['DELETE'])
 def deleteUser(entry_id):
@@ -225,6 +229,7 @@ def deleteUser(entry_id):
         return jsonify({"message": "Entry deleted successfully"}), 200
     else:
         return jsonify({"error": "Entry not found"}), 404
+
 
 @app.route('/api/user/<int:entry_id>', methods=['PUT'])
 def updateUser(entry_id):
@@ -302,7 +307,7 @@ def updateUser(entry_id):
     return jsonify({"message": f"Entry {entry_id} updated successfully"}), 200
 
 
-#====================awards stuff =============================
+# ====================awards stuff =============================
 @app.route('/api/achievements', methods=['GET'])
 def getAchievements():
     """
@@ -336,7 +341,7 @@ def getAchievements():
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    data = [{"id" : r[0] , "awardname": r[1], "description": r[2]} for r in rows]
+    data = [{"id": r[0], "awardname": r[1], "description": r[2]} for r in rows]
     return jsonify({"leaderboard": data})
 
 
@@ -391,12 +396,12 @@ def addAchievements():
 
             new_row = cur.fetchone()[0]
 
-
         conn.commit()
     finally:
         conn.close()
 
     return jsonify({"id": new_row}), 201
+
 
 @app.route('/api/achievements/<int:entry_id>', methods=['DELETE'])
 def deleteachievements(entry_id):
@@ -441,7 +446,8 @@ def deleteachievements(entry_id):
     else:
         return jsonify({"error": "Entry not found"}), 404
 
-#=============== give acievements to users section =================
+
+# =============== give acievements to users section =================
 @app.route('/api/users/<int:user_id>/achievements', methods=['GET'])
 def get_user_achievements(user_id):
     """
@@ -475,7 +481,7 @@ def get_user_achievements(user_id):
                 """
                 SELECT a.id, a.awardname, a.description
                 FROM awards a
-                JOIN user_awards ua ON a.id = ua.awardId
+                         JOIN user_awards ua ON a.id = ua.awardId
                 WHERE ua.userId = %s;
                 """,
                 (user_id,)
@@ -488,6 +494,7 @@ def get_user_achievements(user_id):
         conn.close()
 
     return jsonify(achievements), 200
+
 
 @app.route('/api/users/<int:user_id>/achievements', methods=['POST'])
 def give_user_achievement(user_id):
@@ -551,9 +558,29 @@ def give_user_achievement(user_id):
 
     return jsonify({"message": "Achievement granted"}), 201
 
-@app.route('/api/insights')
-def insights():
-    return "Insights"
+
+
+@app.route('/api/users/by-nickname/<nickname>/achievements', methods=['GET'])
+def achievements_by_nickname(nickname):
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT a.id, a.awardname, a.description
+                FROM awards a
+                JOIN user_awards ua ON a.id = ua.awardId
+                JOIN users u ON u.id = ua.userId
+                WHERE u.githubId = %s;
+                """,
+                (nickname,)
+            )
+            rows = cur.fetchall()
+            data = [{"id": r[0], "awardname": r[1], "description": r[2]} for r in rows]
+            return jsonify(data)
+    finally:
+        conn.close()
+
 
 # @app.route('/api/achievements')
 # def profile():
@@ -563,39 +590,49 @@ def insights():
 def settings():
     return "Settings"
 
-ai_url = "http://ai-service:8000/"
 
-@app.route('/analyze', methods=['POST'])
+# ai_url = "http://ai-service:8000"
+ai_url = "http://ai-service:8000/api"
+
+@app.route('/api/analyze', methods=['POST'])
 def analyze():
     data = request.json
+    if not data:
+        return jsonify({"error": "no JSON body received"}), 400
 
     try:
-        resp = requests.post(ai_url, json=data, timeout=60)
+        resp = requests.post(f"{ai_url}/analyze", json=data, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
     except requests.exceptions.RequestException as e:
+        print("ERROR in /api/analyze:", str(e))
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/classify', methods=['POST'])
-def classify():
-    data = request.json
 
+@app.route('/api/classify', methods=['POST'])
+def classify_route():
+    data = request.json  # { "text": "some PR description" }
     try:
-        resp = requests.post(ai_url, json=data, timeout=60)
+        resp = requests.post(f"{ai_url}/classify", json=data, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
+        # send AI's response back to frontend
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
-@app.route('/review', methods=['POST'])
+
+
+@app.route('/api/review', methods=['POST'])
 def review():
     data = request.json
 
     try:
-        resp = requests.post(ai_url, json=data, timeout=60)
+        resp = requests.post(f"{ai_url}/review", json=data, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     initdb()

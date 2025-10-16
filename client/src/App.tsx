@@ -16,53 +16,71 @@ import LoginPage from "./LoginPage";
 import GitHubIconLink from "./GitHubIconLink";
 
 const links = [
-  { link: '/dashboard', label: 'Dashboard' },
+  { link: '/', label: 'Dashboard' },
   { link: '/leaderboard', label: 'Leaderboard' },
-    { link: '/achievements', label: 'Achievements'}
+    { link: '/achievements', label: 'Achievements'},
+
 ];
 
 export function HeaderSimple() {
-    const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
-  const [opened, { toggle }] = useDisclosure(false);
-  const [active, setActive] = useState(links[0].link);
-
-  const items = links.map((link) => (
-  <Link
-    key={link.label}
-    to={link.link}  
-    className={classes.link}
-    data-active={active === link.link || undefined}
-    onClick={() => setActive(link.link)}
-  >
-    {link.label}
-  </Link>
-));
-
-  return (
-    <header className={classes.header}>
-      <Container size="md" className={classes.inner}>
-
-        <Group gap={5} visibleFrom="xs" ml="auto">
-          {items}
-          <Button
-              component={Link}
-              to="/input"
-              variant="filled"
-              color="blue"
-              ml="md"
-          >
-              + New PR
-          </Button>
-        </Group>
+    const {loginWithRedirect, logout, isAuthenticated, user} = useAuth0();
+    const [opened, {toggle}] = useDisclosure(false);
+    const [active, setActive] = useState(links[0].link);
 
 
-        <Burger opened={opened} onClick={toggle} hiddenFrom="xs" size="sm" />
-      </Container>
-    </header>
-  );
-}
+
+        const items = links.map((link) => (
+            <Link
+                key={link.label}
+                to={link.link}
+                className={classes.link}
+                data-active={active === link.link || undefined}
+                onClick={() => setActive(link.link)}
+            >
+                {link.label}
+
+            </Link>
+        ));
+
+            return (
+                <header className={classes.header}>
+                    <Container size="md" className={classes.inner}>
+
+                        <Group gap={5} visibleFrom="xs" ml="auto">
+                            {/*<Avatar src={user.picture}/>*/}
+                            {items}
+                            <Button
+                                component={Link}
+                                to="/input"
+                                variant="filled"
+                                color="blue"
+                                ml="md"
+                            >
+                                + New PR
 
 
+                            </Button>
+                            {/*<Button*/}
+                            {/*    component={Link}*/}
+                            {/*    to="./authLogout"*/}
+                            {/*    variant="filled"*/}
+                            {/*    color="blue"*/}
+                            {/*    ml="md"*/}
+                            {/*>*/}
+                            {/*    <AuthLogout*/}
+
+
+                            {/*</Button>*/}
+                            <AuthLogout></AuthLogout>
+
+                        </Group>
+
+
+                        <Burger opened={opened} onClick={toggle} hiddenFrom="xs" size="sm"/>
+                    </Container>
+                </header>
+            );
+        }
 
 
 function App() {
@@ -110,8 +128,10 @@ function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/achievements" element={<AchievementsPage/>}/>
+         <Route path="/input" element={<PrInputPage />} />
       </Routes>
      </Router>
+
   ) : null;
 }
 
