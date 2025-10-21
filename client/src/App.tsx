@@ -16,53 +16,56 @@ import LoginPage from "./LoginPage";
 import GitHubIconLink from "./GitHubIconLink";
 
 const links = [
-  { link: '/dashboard', label: 'Dashboard' },
+  { link: '/', label: 'Dashboard' },
   { link: '/leaderboard', label: 'Leaderboard' },
-    { link: '/achievements', label: 'Achievements'}
+    { link: '/achievements', label: 'Achievements'},
+
 ];
 
 export function HeaderSimple() {
-    const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
+  const { user } = useAuth0();
   const [opened, { toggle }] = useDisclosure(false);
   const [active, setActive] = useState(links[0].link);
 
   const items = links.map((link) => (
-  <Link
-    key={link.label}
-    to={link.link}  
-    className={classes.link}
-    data-active={active === link.link || undefined}
-    onClick={() => setActive(link.link)}
-  >
-    {link.label}
-  </Link>
-));
+    <Link
+      key={link.label}
+      to={link.link}
+      className={classes.link}
+      data-active={active === link.link || undefined}
+      onClick={() => setActive(link.link)}
+    >
+      {link.label}
+    </Link>
+  ));
 
   return (
     <header className={classes.header}>
       <Container size="md" className={classes.inner}>
-
-        <Group gap={5} visibleFrom="xs" ml="auto">
+        <Group gap={5} ml="auto">
           {items}
-          <Button
-              component={Link}
-              to="/input"
-              variant="filled"
-              color="blue"
-              ml="md"
-          >
-              + New PR
+
+          <Button component={Link} to="/input" variant="filled" color="blue" ml="md">
+            + New PR
           </Button>
+
+          <GitHubIconLink url="https://github.com" size={40} />
+
+          {user && (
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Avatar src={user.picture} radius="xl" />
+              </Menu.Target>
+              <Menu.Dropdown>
+                <AuthLogout />
+              </Menu.Dropdown>
+            </Menu>
+          )}
         </Group>
-
-
-        <Burger opened={opened} onClick={toggle} hiddenFrom="xs" size="sm" />
       </Container>
     </header>
   );
 }
-
-
 
 
 function App() {
@@ -90,28 +93,31 @@ function App() {
                   direction="row"
                   wrap="wrap"
                 >
-                  <Link to="/">Dashboard</Link>
-                  <Link to="/leaderboard">Leaderboard</Link>
-                  <Link to="/achievements">Achievements</Link>
-                  <GitHubIconLink url="https://github.com" size={40} />
-                  <Menu shadow="md" width={200}>
-                      <Menu.Target>
-                            <Avatar src={user.picture} />
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                          <Menu.Label>
-                              <AuthLogout></AuthLogout>
-                          </Menu.Label>
-                      </Menu.Dropdown>
-                  </Menu>
+                  {/*<Link to="/">Dashboard</Link>*/}
+                  {/*<Link to="/leaderboard">Leaderboard</Link>*/}
+                  {/*<Link to="/achievements">Achievements</Link>*/}
+                  <HeaderSimple></HeaderSimple>
+                  {/*<GitHubIconLink url="https://github.com" size={40} />*/}
+                  {/*<Menu shadow="md" width={200}>*/}
+                  {/*    <Menu.Target>*/}
+                  {/*          <Avatar src={user.picture} />*/}
+                  {/*    </Menu.Target>*/}
+                  {/*    <Menu.Dropdown>*/}
+                  {/*        <Menu.Label>*/}
+                  {/*            <AuthLogout></AuthLogout>*/}
+                  {/*        </Menu.Label>*/}
+                  {/*    </Menu.Dropdown>*/}
+                  {/*</Menu>*/}
               </Flex>
 
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/achievements" element={<AchievementsPage/>}/>
+         <Route path="/input" element={<PrInputPage />} />
       </Routes>
      </Router>
+
   ) : null;
 }
 

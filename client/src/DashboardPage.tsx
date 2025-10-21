@@ -6,47 +6,58 @@ import '@mantine/core/styles.css';
 import '@mantine/charts/styles.css';
 import {useAuth0} from "@auth0/auth0-react";
 
-
 interface LeaderboardEntry {
-  name: string;
-  score: number;
-  img: "https://i.pravatar.cc/100?img=5";
-
+    name: string;
+    score: number;
+    img: "https://i.pravatar.cc/100?img=5";
 }
+interface Achievement {
+  id: number;
+  awardname: string;
+  description: string;
+}
+
 async function addUserToLeaderboard(user: any) {
-    await fetch("/leaderboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ githubId: user.nickname, comment_score: 0, code_score: 0 }),
-    });
+  await fetch("/leaderboard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ githubId: user.nickname, comment_score: 0, code_score: 0 }),
+  });
 }
-function DashboardPage() {
-    const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
-    const { user, isAuthenticated, isLoading } = useAuth0();
 
-    const [metrics] = useState({
+function DashboardPage() {
+  const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
+  const [achievements, setAchievements] = useState<Achievement[] | null>(null);
+  const { user, isAuthenticated, isLoading } = useAuth0();
+
+  const [metrics] = useState({
     helpfulness: 4.2,
     tonePositive: 87,
     technicalAccuracy: 92,
-    });
+  });
 
-    useEffect(() => {
-        if(isAuthenticated && user){
-            addUserToLeaderboard(user);
-        }
-    }, [isAuthenticated, user]);
+ useEffect(() => {
+    if (isAuthenticated && user) {
+      fetch(`/api/users/by-nickname/${user.nickname}/achievements`)
+        .then((res) => res.json())
+        .then((res) => setAchievements(res))
+        .catch((err) => {
+          console.error("Failed to load achievements:", err);
+          setAchievements([]);
+        });
+    }
+  }, [isAuthenticated, user]);
 
-    const heatData = {
-      '2025-02-14': 2,
-      '2025-03-03': 3,
-      '2025-02-08': 4,
-      '2025-03-23': 1,
-      '2025-04-03': 2,
-      '2025-04-01': 2,
-      '2025-05-08': 4,
-      '2025-05-04': 2,
-
-    };
+  const heatData = {
+    "2025-02-14": 2,
+    "2025-03-03": 3,
+    "2025-02-08": 4,
+    "2025-03-23": 1,
+    "2025-04-03": 2,
+    "2025-04-01": 2,
+    "2025-05-08": 4,
+    "2025-05-04": 2,
+  };
 
   const pieData1 = [
       {
@@ -85,16 +96,16 @@ function DashboardPage() {
   ];
 
 
- useEffect(() => {
-        fetch("/leaderboard")
-          .then((res) => res.json())
-          .then((res) => {
-            const sorted = [...res.leaderboard].sort(
-              (a: LeaderboardEntry, b: LeaderboardEntry) => b.score - a.score
-            );
-            setTopMembers(sorted.slice(0, 3)); // only keep top 3
-          });
-    }, []);
+  useEffect(() => {
+    fetch("/leaderboard")
+      .then((res) => res.json())
+      .then((res) => {
+        const sorted = [...res.leaderboard].sort(
+          (a: LeaderboardEntry, b: LeaderboardEntry) => b.score - a.score
+        );
+        setTopMembers(sorted.slice(0, 3)); // only keep top 3
+      });
+  }, []);
 
 
 
@@ -118,14 +129,13 @@ function DashboardPage() {
               Leaderboard
             </Title>
             {!topMembers ? (
-                    <Loader />
-                  ) : (
-                 topMembers.map((member, index) => (
-              <Group key={index} mt="xs">
-                <Avatar
-                src={
-                    // If this is the logged-in user, use their Auth0 picture
-                    isAuthenticated && user && member.name === user.nickname
+              <Loader />
+            ) : (
+              topMembers.map((member, index) => (
+                <Group key={index} mt="xs">
+                  <Avatar
+                    src={
+                      isAuthenticated && user && member.name === user.nickname
                         ? user.picture
                         : member.img
                 }
@@ -142,9 +152,17 @@ function DashboardPage() {
               Achievements
             </Title>
             <Group mt="xs">
-              <Badge color="orange">Constructive Commenter</Badge>
-              <Badge color="teal">Quick Responder</Badge>
-              <Badge color="blue">Tone Master</Badge>
+              {!achievements ? (
+                <Loader size="sm" />
+              ) : achievements.length === 0 ? (
+                <Text c="dimmed">You have no achievements yet.</Text>
+              ) : (
+                achievements.map((ach) => (
+                  <Badge key={ach.id} color="teal">
+                    {ach.awardname}
+                  </Badge>
+                ))
+              )}
             </Group>
 
             <Title order={3}>
@@ -243,8 +261,7 @@ function DashboardPage() {
         </Grid.Col>
       </Grid>
     </div>
-    ) : null;
+  ) : null;
 }
-
 
 export default DashboardPage;
