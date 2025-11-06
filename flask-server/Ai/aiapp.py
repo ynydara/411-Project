@@ -1,101 +1,70 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
-import torch
-from torch.nn import functional as F
+from dotenv import dotenv_values
+from huggingface_hub import InferenceClient
+import os
 
 app = FastAPI(title="AI Service")
 
-# --- Load Models ---
-CLASSIFIER_MODEL = "Akirk1213/review-classification"
-clf_tokenizer = AutoTokenizer.from_pretrained(CLASSIFIER_MODEL)
-clf_model = AutoModelForSequenceClassification.from_pretrained(CLASSIFIER_MODEL)
+# --- Load API Key properly ---
+HF_API_KEY = os.getenv("HUGGINGFACE_API_TOKEN") or dotenv_values("huggingFaceConfig.env").get("HUGGINGFACE_API_TOKEN")
 
-CODEREVIEWER_MODEL = "microsoft/codereviewer"
-rev_tokenizer = AutoTokenizer.from_pretrained(CODEREVIEWER_MODEL)
-rev_model = AutoModelForSeq2SeqLM.from_pretrained(CODEREVIEWER_MODEL)
+if not HF_API_KEY:
+    raise ValueError("No Hugging Face API token found in environment or huggingFaceConfig.env")
 
+client = InferenceClient(token=HF_API_KEY)
+
+LLAMA_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 # --- Request schema ---
 class TextRequest(BaseModel):
     text: str
 
-# --- Utility: Detect if input looks like code ---
+# --- Utility ---
 def is_code_like(text: str) -> bool:
     code_signals = [";", "{", "}", "def ", "class ", "function ", "=>", "import "]
     return any(sig in text for sig in code_signals)
 
+# --- LLaMA generate ---
+def llama_generate(prompt: str) -> str:
+    try:
+        response = client.text_generation(
+            prompt,
+            max_new_tokens=300,
+            temperature=0.7,
+            repetition_penalty=1.1,
+        )
 
-# --- Classifier ---
+        if isinstance(response, dict) and "generated_text" in response:
+            return response["generated_text"]
+        elif isinstance(response, list) and len(response) > 0 and "generated_text" in response[0]:
+            return response[0]["generated_text"]
+        elif hasattr(response, "generated_text"):
+            return response.generated_text
+        else:
+            print("⚠️ Unexpected response structure:", response)
+            return str(response)
+
+    except Exception as e:
+        print("⚠️ LLaMA generate error:", e)
+        raise
+
+# --- API routes ---
 @app.post("/api/classify")
 def classify(req: TextRequest):
-    try:
-        inputs = clf_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            outputs = clf_model(**inputs)
-        probs = F.softmax(outputs.logits, dim=-1)[0]
-        pred_id = probs.argmax().item()
-        labels = clf_model.config.id2label
+    prompt = f"How does this PR sound \n \n {req.text}"
+    return {"text": req.text, "response": llama_generate(prompt), "source": "llama-classifier"}
 
-        return {
-            "text": req.text,
-            "prediction": labels[pred_id],
-            "confidence": float(probs[pred_id]),
-            "scores": {labels[i]: float(p) for i, p in enumerate(probs)},
-            "source": "classifier"
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# --- Code Reviewer ---
 @app.post("/api/review")
 def review(req: TextRequest):
-    try:
-        inputs = rev_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            tokens = rev_model.generate(
-                **inputs, max_length=200, num_beams=5, early_stopping=True
-            )
-        review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
+    prompt = f"Review this code professionally and suggest improvements:\n\n{req.text}"
+    return {"text": req.text, "review": llama_generate(prompt), "source": "llama-review"}
 
-        # Clean artifacts
-        review_text = review_text.replace("<e0>", "").replace("</s>", "").strip()
-
-        return {"text": req.text, "review": review_text, "source": "codereviewer"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# --- Auto Analyze (smart routing) ---
 @app.post("/api/analyze")
 def analyze(req: TextRequest):
     text = req.text.strip()
-
     if is_code_like(text):
-        # Route to CodeReviewer
-        inputs = rev_tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            tokens = rev_model.generate(
-                **inputs, max_length=200, num_beams=5, early_stopping=True
-            )
-        review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
-        review_text = review_text.replace("<e0>", "").replace("</s>", "").strip()
-
-        return {"text": text, "review": review_text, "source": "codereviewer"}
-
+        prompt = f"Review this code professionally:\n\n{text}"
+        return {"text": text, "review": llama_generate(prompt), "source": "llama-review"}
     else:
-        # Route to Classifier
-        inputs = clf_tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            outputs = clf_model(**inputs)
-        probs = F.softmax(outputs.logits, dim=-1)[0]
-        pred_id = probs.argmax().item()
-        labels = clf_model.config.id2label
-
-        return {
-            "text": text,
-            "prediction": labels[pred_id],
-            "confidence": float(probs[pred_id]),
-            "scores": {labels[i]: float(p) for i, p in enumerate(probs)},
-            "source": "classifier"
-        }
+        prompt = f"Analyze sentiment or tone of the text (positive, negative, neutral):\n\n{text}"
+        return {"text": text, "analysis": llama_generate(prompt), "source": "llama-classifier"}
