@@ -603,12 +603,36 @@ def analyze():
     try:
         resp = requests.post(f"{ai_url}/analyze", json=data, timeout=60)
         resp.raise_for_status()
-        return jsonify(resp.json())
+
+        # Try decode JSON or fallback to text
+        try:
+            ai_json = resp.json()
+        except ValueError:
+            ai_text = resp.text
+            if "content='" in ai_text:
+                start = ai_text.find("content='") + len("content='")
+                end = ai_text.find("'", start)
+                content = ai_text[start:end]
+                return jsonify({"analysis": content.strip()})
+            return jsonify({"analysis": ai_text.strip()})
+
+        # ✅ Unified logic
+        content = None
+        if "analysis" in ai_json:
+            content = ai_json["analysis"]
+        elif "review" in ai_json:
+            content = ai_json["review"]
+        elif "choices" in ai_json and len(ai_json["choices"]) > 0:
+            choice = ai_json["choices"][0]
+            if "message" in choice and "content" in choice["message"]:
+                content = choice["message"]["content"]
+
+        return jsonify({"analysis": content or "No analysis found."})
+
     except requests.exceptions.RequestException as e:
         print("ERROR in /api/analyze:", str(e))
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/api/classify', methods=['POST'])
 def classify_route():
