@@ -1,15 +1,15 @@
 .header {
-    height: 56px;
-    margin-bottom: 120px;
+    height: 8vh;
+    margin-bottom: 1vh;
   /* Light mode fallback: var(--mantine-color-gray-3) */
   /* Dark mode fallback: var(--mantine-color-dark-4) */
 }
 
 
 .inner {
-    height: 56px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
 }
 
 .link {

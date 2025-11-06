@@ -84,7 +84,8 @@ function App() {
       </Router>
   ) : user ? (
           <Router>
-              <Flex
+              <HeaderSimple></HeaderSimple>
+              { /* <Flex
                   mih={50}
                   bg="rgba(0, 0, 0, 0)"
                   gap="sm"
@@ -93,22 +94,21 @@ function App() {
                   direction="row"
                   wrap="wrap"
                 >
-                  {/*<Link to="/">Dashboard</Link>*/}
-                  {/*<Link to="/leaderboard">Leaderboard</Link>*/}
-                  {/*<Link to="/achievements">Achievements</Link>*/}
-                  <HeaderSimple></HeaderSimple>
-                  {/*<GitHubIconLink url="https://github.com" size={40} />*/}
-                  {/*<Menu shadow="md" width={200}>*/}
-                  {/*    <Menu.Target>*/}
-                  {/*          <Avatar src={user.picture} />*/}
-                  {/*    </Menu.Target>*/}
-                  {/*    <Menu.Dropdown>*/}
-                  {/*        <Menu.Label>*/}
-                  {/*            <AuthLogout></AuthLogout>*/}
-                  {/*        </Menu.Label>*/}
-                  {/*    </Menu.Dropdown>*/}
-                  {/*</Menu>*/}
-              </Flex>
+                  <Link to="/">Dashboard</Link>*
+                  <Link to="/leaderboard">Leaderboard</Link>
+                  <Link to="/achievements">Achievements</Link>
+                  <GitHubIconLink url="https://github.com" size={40} />
+                  <Menu shadow="md" width={200}>
+                     <Menu.Target>
+                            <Avatar src={user.picture} />
+                     </Menu.Target>
+                      <Menu.Dropdown>
+                          <Menu.Label>
+                             <AuthLogout></AuthLogout>
+                         </Menu.Label>
+                      </Menu.Dropdown>
+                  {/*</Menu>
+              </Flex>  */}
 
       <Routes>
         <Route path="/" element={<DashboardPage />} />
