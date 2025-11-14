@@ -1,28 +1,16 @@
 import "./App.css";
 import React, { useEffect, useState } from "react";
-import {
-  Card,
-  Title,
-  Text,
-  Loader,
-  Grid,
-  Group,
-  Avatar,
-  Badge,
-  RingProgress,
-  Progress,
-} from "@mantine/core";
-import { LineChart, Heatmap, DonutChart } from "@mantine/charts";
-import "@mantine/core/styles.css";
-import "@mantine/charts/styles.css";
-import { useAuth0 } from "@auth0/auth0-react";
+import {Card, Title, Text, Loader, List, Grid, Group, CardSection, Stack,  Avatar, Badge, RingProgress, Progress} from "@mantine/core";
+import { LineChart, Heatmap, DonutChart } from '@mantine/charts';
+import '@mantine/core/styles.css';
+import '@mantine/charts/styles.css';
+import {useAuth0} from "@auth0/auth0-react";
 
 interface LeaderboardEntry {
-  name: string;
-  score: number;
-  img: string;
+    name: string;
+    score: number;
+    img: "https://i.pravatar.cc/100?img=5";
 }
-
 interface Achievement {
   id: number;
   awardname: string;
@@ -72,16 +60,41 @@ function DashboardPage() {
   };
 
   const pieData1 = [
-    { name: "Group A", value: 400, color: "blue" },
-    { name: "Group B", value: 300, color: "purple" },
-    { name: "Group C", value: 200, color: "green" },
-  ];
+      {
+        "name": "Group A",
+        "value": 400,
+        "color": "blue"
+      },
+      {
+        "name": "Group B",
+        "value": 300,
+        "color": "purple"
+      },
+      {
+        "name": "Group C",
+        "value": 200,
+        "color": "green"
+      },
+    ];
 
   const pieData2 = [
-    { name: "Group D", value: 200, color: "blue" },
-    { name: "Group E", value: 278, color: "purple" },
-    { name: "Group F", value: 189, color: "green" },
+      {
+        "name": "Group D",
+        "value": 200,
+        "color": "blue"
+      },
+      {
+        "name": "Group E",
+        "value": 278,
+        "color": "purple"
+      },
+      {
+        "name": "Group F",
+        "value": 189,
+        "color": "green"
+      }
   ];
+
 
   useEffect(() => {
     fetch("/leaderboard")
@@ -94,20 +107,27 @@ function DashboardPage() {
       });
   }, []);
 
-  return user ? (
-    <div style={{ padding: "2rem" }}>
-      <Title order={1} ta="center">
-        Welcome back, {user.name}!
-      </Title>
-      <Title order={2} ta="center">
-        Here’s how your code reviews are looking this week
-      </Title>
+
+
+
+
+    // @ts-ignore
+    return user ? (
+    <div>
+        <Title order={1} ta="center" >
+            Welcome back, {user.name}!
+        </Title>
+        <Title order={2} ta="center">
+            Here’s how your code reviews are looking this week
+        </Title>
 
       <Grid>
         {/* Left Column */}
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Card shadow="sm" radius="md" p="lg">
-            <Title order={3}>Leaderboard</Title>
+            <Title order={3}>
+              Leaderboard
+            </Title>
             {!topMembers ? (
               <Loader />
             ) : (
@@ -118,18 +138,19 @@ function DashboardPage() {
                       isAuthenticated && user && member.name === user.nickname
                         ? user.picture
                         : member.img
-                    }
-                    radius="xl"
-                  />
-                  <Text>{member.name}</Text>
-                  <Text c="dimmed" ml="auto">
-                    {member.score}
-                  </Text>
-                </Group>
-              ))
+                }
+                radius="xl"
+            />
+                <Text>{member.name}</Text>
+                <Text c="dimmed" ml="auto">
+                  {member.score}
+                </Text>
+              </Group>
+            ))
             )}
-
-            <Title order={3}>Accomplishments</Title>
+            <Title order={3}>
+              Achievements
+            </Title>
             <Group mt="xs">
               {!achievements ? (
                 <Loader size="sm" />
@@ -144,7 +165,9 @@ function DashboardPage() {
               )}
             </Group>
 
-            <Title order={3}>Streak Tracker</Title>
+            <Title order={3}>
+              Streak Tracker
+            </Title>
             <Text size="sm" c="dimmed">
               You’ve reviewed 5 days in a row!
             </Text>
@@ -155,6 +178,7 @@ function DashboardPage() {
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" radius="md" p="lg">
             <Title order={3}>Review Quality Scorecard</Title>
+
             <Group grow mt="md">
               <div>
                 <Text fw={500}>Helpfulness</Text>
@@ -179,6 +203,7 @@ function DashboardPage() {
                 />
               </div>
             </Group>
+
             <Text size="sm" c="dimmed" mt="md">
               Weekly progress
             </Text>
@@ -189,22 +214,22 @@ function DashboardPage() {
             <Grid.Col span={6}>
               <Card shadow="sm" radius="md" p="lg">
                 <Title order={3}>Active PRs Overview</Title>
-                <Group justify="space-between" mt="sm" mb="xs">
-                  <Text size="sm" c="dimmed" mt="xs">
-                    great suggestion • clarify • maybe
-                  </Text>
-                  <DonutChart size={101} thickness={30} data={pieData1} />
-                </Group>
+                 <Group justify="space-between" mt="sm" mb="xs">
+                    <Text size="sm" c="dimmed" mt="xs">
+                      great suggestion • clarify • maybe
+                    </Text>
+                    <DonutChart size={101} thickness={30} data={pieData1} withTooltip={false}/>
+                 </Group>
               </Card>
             </Grid.Col>
             <Grid.Col span={6}>
               <Card shadow="sm" radius="md" p="lg">
                 <Title order={3}>Feedback Insights</Title>
                 <Group justify="space-between" mt="sm" mb="xs">
-                  <Text size="sm" c="dimmed" mt="xs">
-                    “great suggestion” and “good point” are trending
-                  </Text>
-                  <DonutChart size={101} thickness={30} data={pieData2} />
+                    <Text size="sm" c="dimmed" mt="xs">
+                      “great suggestion” and “good point” are trending
+                    </Text>
+                    <DonutChart size={101} thickness={30} data={pieData2} withTooltip={false}/>
                 </Group>
               </Card>
             </Grid.Col>
@@ -215,27 +240,22 @@ function DashboardPage() {
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Card shadow="sm" radius="md" p="lg">
             <Title order={3} mb="xs">Team Trends</Title>
-            <Text size="sm" c="dimmed">
+              {/*  <Text size="sm" c="dimmed">
               Avg review response time ↓ 12%
-            </Text>
+            </Text> */}
             <div>
-              <Heatmap data={heatData} startDate="2025-02-08" endDate="2025-05-08" rectSize={17} />
+                <Heatmap data={heatData} startDate="2025-02-08" endDate="2025-05-08" rectSize={17}/>
             </div>
-            <Text size="sm" c="dimmed" mb="md">
+             <Text size="sm" c="dimmed" mb="md">
               Participation heatmap
             </Text>
 
-            <Title order={3}>Coaching Tip of the Day</Title>
+            <Title order={3}>
+              Coaching Tip of the Day
+            </Title>
             <Text size="sm" c="dimmed" mt="xs">
               Try suggesting alternatives instead of just pointing out problems — it boosts
               helpfulness scores by 15%.
-            </Text>
-
-            <Text size="sm" mt="md">
-              Integrations:{" "}
-              <Text span c="blue" style={{ cursor: "pointer" }}>
-                GitHub
-              </Text>{" "}
             </Text>
           </Card>
         </Grid.Col>

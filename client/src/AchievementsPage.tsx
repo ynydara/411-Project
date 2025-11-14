@@ -85,9 +85,9 @@ function AchievementsPage() {
                     />
                     <Text fw={600}>{award.awardname}</Text>
                   </Group>
-                  <Badge color="teal" variant="light">
-                    Have you earned this award yet?
-                  </Badge>
+                  {/*<Badge color="teal" variant="light">*/}
+                  {/*  Have you earned this award yet?*/}
+                  {/*</Badge>*/}
                 </Group>
                 <Text size="sm" c="dimmed">
                   {award.description}
