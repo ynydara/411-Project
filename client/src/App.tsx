@@ -2,123 +2,31 @@ import "./App.css";
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Link} from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { Flex, AspectRatio,Loader, Center, Avatar, Burger, Container, Group, Button, Title, Menu } from "@mantine/core";
 
-import LeaderboardPage from "./LeaderboardPage";
-import DashboardPage from "./DashboardPage";
-import AchievementsPage from "./AchievementsPage";
 import AuthLogout from "./authLogout";
-import PrInputPage from "./PullRequest";
 import { useDisclosure } from '@mantine/hooks';
 
-import classes from './HeaderSimple.module.css';
-import LoginPage from "./LoginPage";
-import GitHubIconLink from "./GitHubIconLink";
-
-const links = [
-  { link: '/', label: 'Dashboard' },
-  { link: '/leaderboard', label: 'Leaderboard' },
-    { link: '/achievements', label: 'Achievements'},
-
-];
-
-export function HeaderSimple() {
-  const { user } = useAuth0();
-  const [opened, { toggle }] = useDisclosure(false);
-  const [active, setActive] = useState(links[0].link);
-
-  const items = links.map((link) => (
-    <Link
-      key={link.label}
-      to={link.link}
-      className={classes.link}
-      data-active={active === link.link || undefined}
-      onClick={() => setActive(link.link)}
-    >
-      {link.label}
-    </Link>
-  ));
-
-  return (
-    <header className={classes.header}>
-      <Container size="md" className={classes.inner}>
-        <Group gap={5} ml="auto">
-          {items}
-
-          <Button component={Link} to="/input" variant="filled" color="blue" ml="md">
-            + New PR
-          </Button>
-
-          <GitHubIconLink url="https://github.com" size={40} />
-
-          {user && (
-            <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Avatar src={user.picture} radius="xl" />
-              </Menu.Target>
-              <Menu.Dropdown>
-                <AuthLogout />
-              </Menu.Dropdown>
-            </Menu>
-          )}
-        </Group>
-      </Container>
-    </header>
-  );
-}
+import {LandingPage} from "./LandingPage";
+import {Navbar} from "./NavBar"
+import {Dashboard} from "./Dashboard";
+import {Achievements} from "./Achievements";
+import {Leaderboard} from "./Leaderboard";
 
 
-function App() {
+export default function App() {
   const { loginWithRedirect, logout, isAuthenticated, user } = useAuth0();
 
-  // if (isLoading) {
-  //   return <Center>
-  //           <Loader color="indigo" size="xl" />
-  //       </Center>;
-  // }
-  return !isAuthenticated ? (
+  return (
      <Router>
+         <Navbar></Navbar>
          <Routes>
-           <Route path="/" element={<LoginPage/>}/>
+           <Route path="/" element={<LandingPage onGetStarted={function(): void {
+                  throw new Error("Function not implemented.");
+              } }/>}/>
+             <Route path="/dashboard" element={<Dashboard />}/>
+             <Route path="/achievements" element={<Achievements />}/>
+             <Route path="/leaderboard" element={<Leaderboard />}/>
          </Routes>
       </Router>
-  ) : user ? (
-          <Router>
-              <HeaderSimple></HeaderSimple>
-              { /* <Flex
-                  mih={50}
-                  bg="rgba(0, 0, 0, 0)"
-                  gap="sm"
-                  justify="flex-end"
-                  align="center"
-                  direction="row"
-                  wrap="wrap"
-                >
-                  <Link to="/">Dashboard</Link>*
-                  <Link to="/leaderboard">Leaderboard</Link>
-                  <Link to="/achievements">Achievements</Link>
-                  <GitHubIconLink url="https://github.com" size={40} />
-                  <Menu shadow="md" width={200}>
-                     <Menu.Target>
-                            <Avatar src={user.picture} />
-                     </Menu.Target>
-                      <Menu.Dropdown>
-                          <Menu.Label>
-                             <AuthLogout></AuthLogout>
-                         </Menu.Label>
-                      </Menu.Dropdown>
-                  {/*</Menu>
-              </Flex>  */}
-
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/achievements" element={<AchievementsPage/>}/>
-         <Route path="/input" element={<PrInputPage />} />
-      </Routes>
-     </Router>
-
-  ) : null;
+  );
 }
-
-export default App;
