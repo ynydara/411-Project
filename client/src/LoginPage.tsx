@@ -19,7 +19,21 @@ const leaderboardData: LeaderBoardUser[] = [
     ];
 
 function LoginPage() {
-    const { loginWithRedirect, logout, isAuthenticated, user, isLoading } = useAuth0();
+    const { loginWithRedirect, logout, isAuthenticated, user, isLoading, getAccessTokenSilently } = useAuth0();
+     const [githubToken, setGithubToken] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchToken = async () => {
+            try {
+                const token = await getAccessTokenSilently();
+                setGithubToken(token);
+            } catch (err) {
+                console.error("Error getting GitHub token:", err);
+            }
+        };
+        fetchToken();
+    }, [getAccessTokenSilently]);
+
 
     return (
     <>
@@ -120,11 +134,7 @@ function LoginPage() {
                                   </Group>
                                 ))}
                               </Stack>
-                            </Card>
-
-
-
-
+                         </Card>
                 </Center>
               </Card>
         </Container>

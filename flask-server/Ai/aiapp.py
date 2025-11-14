@@ -1,113 +1,119 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from dotenv import dotenv_values
-from huggingface_hub import InferenceClient
+
 import os
+import json
+import re
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from transformers import pipeline
+from huggingface_hub import login
 
-app = FastAPI(title="AI Service")
+# ---------------------- CONFIG ------------------------
+HF_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"
 
-# --- Load API Key properly ---
-HF_API_KEY = os.getenv("HUGGINGFACE_API_TOKEN") or dotenv_values("huggingFaceConfig.env").get("HUGGINGFACE_API_TOKEN")
+if not HF_TOKEN:
+    raise ValueError("Missing Hugging Face API key in environment variables")
 
-if not HF_API_KEY:
-    raise ValueError("No Hugging Face API token found in environment or huggingFaceConfig.env")
+login(HF_TOKEN)
+print(f"🔹 Loading model: {MODEL_ID}")
+generator = pipeline("text-generation", model=MODEL_ID, device_map="auto")
 
-client = InferenceClient(token=HF_API_KEY)
+# ---------------------- APP INIT ----------------------
+app = FastAPI(title="AI-Service", version="3.0", description="Analyzes GitHub PRs for dashboard insights")
 
-LLAMA_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
-# --- Request schema ---
-class TextRequest(BaseModel):
-    text: str
+class AnalysisRequest(BaseModel):
+    type: str   # "pr" | "comment" | "code"
+    content: str
 
-# --- Utility ---
-def is_code_like(text: str) -> bool:
-    code_signals = [";", "{", "}", "def ", "class ", "function ", "=>", "import "]
-    return any(sig in text for sig in code_signals)
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "ai-service"}
 
-# --- LLaMA generate ---
-def llama_generate(prompt: str) -> str:
+
+@app.post("/analyze")
+def analyze(payload: AnalysisRequest):
+    """
+    Accepts GitHub PR, comment, or code diff and returns structured analysis data
+    matching the Figma frontend schema.
+    """
     try:
-        response = client.chat_completion(
-            model=LLAMA_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that gives concise, clear responses."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=300,
-            temperature=0.7,
+        prompt = build_prompt(payload.type, payload.content)
+
+        result = generator(
+            prompt,
+            max_new_tokens=400,
+            temperature=0.6,
+            top_p=0.9,
         )
 
-        print("🧠 Raw Llama response:", response)
+        raw_output = result[0]["generated_text"]
+        structured = parse_ai_response(raw_output)
 
-        # Handle Hugging Face's possible return formats
-        if isinstance(response, dict) and "choices" in response:
-            return response["choices"][0]["message"]["content"]
-        elif hasattr(response, "choices"):
-            return response.choices[0].message["content"]
-        elif isinstance(response, str):
-            return response
-        else:
-            print("⚠️ Unexpected structure from HF:", response)
-            return str(response)
+        return {
+            "model": MODEL_ID,
+            "success": True,
+            "data": structured
+        }
 
     except Exception as e:
-        print("⚠️ LLaMA generate error:", e)
-        return f"Error generating response: {e}"
-# --- API routes ---
-@app.post("/api/classify")
-def classify(req: TextRequest):
-    prompt = f"How does this PR sound \n \n {req.text}"
-    return {"text": req.text, "response": llama_generate(prompt), "source": "llama-classifier"}
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/review")
-def review(req: TextRequest):
-    prompt = f"Review this code professionally and suggest improvements:\n\n{req.text}"
-    return {"text": req.text, "review": llama_generate(prompt), "source": "llama-review"}
-import re
-import json
 
-def extract_llama_text(raw):
-    """
-    Extracts text from Hugging Face / Llama responses.
-    Handles both structured objects and plain strings.
-    """
-    if not raw:
-        return "No analysis found."
+def build_prompt(data_type: str, content: str) -> str:
+    """Format prompt for model, instructing it to return JSON matching Figma dashboard schema."""
+    return f"""
+You are an AI that analyzes GitHub {data_type}s to provide metrics for a developer performance dashboard.
+Return a JSON object matching this schema:
 
-    # Case 1: If it's a plain string, just return it directly
-    if isinstance(raw, str):
-        raw = raw.strip()
-        # filter out boilerplate strings
-        if raw.lower().startswith("chatcompletionoutput"):
-            import re
-            match = re.search(r"content=['\"]([^'\"]+)['\"]", raw, re.DOTALL)
-            if match:
-                return match.group(1).strip()
-        # otherwise it's already pure text
-        return raw
+{{
+  "summary": "string - concise explanation of what the PR or comment does",
+  "sentiment": "positive | neutral | negative",
+  "category": "feature | bugfix | refactor | documentation | other",
+  "constructiveness_score": number between 0 and 1,
+  "suggestions": ["array of 1-3 brief, actionable suggestions"],
+  "confidence": number between 0 and 1
+}}
 
-    # Case 2: If it's an object/dict-like
-    if hasattr(raw, "choices") and len(raw.choices) > 0:
-        choice = raw.choices[0]
-        if hasattr(choice, "message") and hasattr(choice.message, "content"):
-            return choice.message.content.strip()
-    elif isinstance(raw, dict):
-        choices = raw.get("choices")
-        if choices and isinstance(choices, list):
-            msg = choices[0].get("message", {})
-            return msg.get("content", "No analysis found.").strip()
+{data_type.capitalize()} content to analyze:
+{content}
 
-    return "No analysis found."
+Respond with JSON only.
+"""
 
-@app.post("/api/analyze")
-def analyze(req: TextRequest):
-    text = req.text.strip()
-    prompt = f"Analyze sentiment or tone of this text:\n\n{text}"
 
-    llama_raw = llama_generate(prompt)
-    extracted = extract_llama_text(llama_raw)
+def parse_ai_response(output: str) -> dict:
+    """Extract valid JSON from model output and safely parse."""
+    match = re.search(r"\{.*\}", output, re.DOTALL)
+    if not match:
+        return fallback_json("Unable to parse model output")
 
-    print("🧠 Raw Llama response:", llama_raw)
-    print("✅ Extracted text:", extracted)
+    try:
+        parsed = json.loads(match.group())
+        # Ensure all required fields exist for frontend binding
+        return {
+            "summary": parsed.get("summary", ""),
+            "sentiment": parsed.get("sentiment", "neutral"),
+            "category": parsed.get("category", "other"),
+            "constructiveness_score": parsed.get("constructiveness_score", 0.5),
+            "suggestions": parsed.get("suggestions", []),
+            "confidence": parsed.get("confidence", 0.5),
+        }
+    except Exception:
+        return fallback_json("Invalid JSON returned from model")
 
-    return {"review": extracted}
+
+def fallback_json(reason: str):
+    """Fallback safe default JSON."""
+    return {
+        "summary": reason,
+        "sentiment": "neutral",
+        "category": "other",
+        "constructiveness_score": 0.5,
+        "suggestions": ["No valid output generated."],
+        "confidence": 0.5
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

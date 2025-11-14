@@ -27,6 +27,8 @@ root.render(
                 clientId={clientId}
                 authorizationParams={{
                     redirect_uri: window.location.origin,
+                    connection: "GitHub",
+                    scope:"openid profile email read:user repo user:email",
                 }}
             >
                 <App />

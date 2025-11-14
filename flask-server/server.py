@@ -592,70 +592,113 @@ def settings():
 
 
 # ai_url = "http://ai-service:8000"
-ai_url = "http://ai-service:8000/api"
+AI_SERVICE_URL = "http://ai-service:8000/api"
+GITHUB_API = "https://api.github.com"
 
-@app.route('/api/analyze', methods=['POST'])
+def github_get(endpoint: str, token: str):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json"
+    }
+    r = requests.get(f"{GITHUB_API}{endpoint}", headers=headers)
+    if r.status_code != 200:
+        return None, r.json()
+    return r.json(), None
+
+@app.route("/api/github/user/prs", methods=["GET"])
+def get_user_prs():
+    token = request.headers.get("Authorization")
+    if not token:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = token.replace("Bearer ", "")
+
+    # Step 1 — who is the user?
+    user, err = github_get("/user", token)
+    if err:
+        return jsonify({"error": "Failed to identify user", "details": err}), 400
+
+    username = user["login"]
+
+    # Step 2 — search PRs authored by the user
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token
+    )
+
+    if err:
+        return jsonify({"error": "Failed to fetch PRs", "details": err}), 400
+
+    return jsonify(prs)
+
+#For A Specific Repository
+@app.route("/api/github/repos/<owner>/<repo>/prs", methods=["GET"])
+def get_repo_prs(owner, repo):
+    token = request.headers.get("Authorization")
+    if not token:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = token.replace("Bearer ", "")
+
+    prs, err = github_get(f"/repos/{owner}/{repo}/pulls", token)
+
+    if err:
+        return jsonify({"error": "Failed to fetch repo PRs", "details": err}), 400
+
+    return jsonify(prs)
+
+#Fetch Pr Details
+@app.route("/api/github/pr/<owner>/<repo>/<int:number>", methods=["GET"])
+def get_pr_details(owner, repo, number):
+    token = request.headers.get("Authorization")
+    if not token:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = token.replace("Bearer ", "")
+
+    # PR metadata
+    pr, err = github_get(f"/repos/{owner}/{repo}/pulls/{number}", token)
+    if err:
+        return jsonify({"error": "Failed to fetch PR", "details": err}), 400
+
+    # PR files
+    files, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{number}/files", token)
+    if err2:
+        return jsonify({"error": "Failed to fetch PR files", "details": err2}), 400
+
+    return jsonify({
+        "pr": pr,
+        "files": files
+    })
+
+#Send to AI
+@app.route("/api/analyze", methods=["POST"])
 def analyze():
-    data = request.json
-    if not data:
-        return jsonify({"error": "no JSON body received"}), 400
+    """Proxy for AI analysis"""
+    data = request.json or {}
+    content = data.get("content")
+    analysis_type = data.get("type", "text")
+
+    if not content:
+        return jsonify({"error": "Missing content"}), 400
+
+    payload = {
+        "type": analysis_type,
+        "content": content
+    }
 
     try:
-        resp = requests.post(f"{ai_url}/analyze", json=data, timeout=60)
-        resp.raise_for_status()
-
-        # Try decode JSON or fallback to text
-        try:
-            ai_json = resp.json()
-        except ValueError:
-            ai_text = resp.text
-            if "content='" in ai_text:
-                start = ai_text.find("content='") + len("content='")
-                end = ai_text.find("'", start)
-                content = ai_text[start:end]
-                return jsonify({"analysis": content.strip()})
-            return jsonify({"analysis": ai_text.strip()})
-
-        # ✅ Unified logic
-        content = None
-        if "analysis" in ai_json:
-            content = ai_json["analysis"]
-        elif "review" in ai_json:
-            content = ai_json["review"]
-        elif "choices" in ai_json and len(ai_json["choices"]) > 0:
-            choice = ai_json["choices"][0]
-            if "message" in choice and "content" in choice["message"]:
-                content = choice["message"]["content"]
-
-        return jsonify({"analysis": content or "No analysis found."})
-
-    except requests.exceptions.RequestException as e:
-        print("ERROR in /api/analyze:", str(e))
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/classify', methods=['POST'])
-def classify_route():
-    data = request.json  # { "text": "some PR description" }
-    try:
-        resp = requests.post(f"{ai_url}/classify", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-        # send AI's response back to frontend
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/review', methods=['POST'])
-def review():
-    data = request.json
-
-    try:
-        resp = requests.post(f"{ai_url}/review", json=data, timeout=60)
+        resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
         resp.raise_for_status()
         return jsonify(resp.json())
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}
+
 
 
 if __name__ == '__main__':
