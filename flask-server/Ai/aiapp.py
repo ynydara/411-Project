@@ -37,7 +37,7 @@ def analyze(payload: AnalysisRequest):
     matching the Figma frontend schema.
     """
     try:
-        prompt = build_prompt(payload.type, payload.content)
+        prompt = build_prompt(payload.type, payload.content, payload.file)
 
         result = generator(
             prompt,
@@ -48,37 +48,53 @@ def analyze(payload: AnalysisRequest):
 
         raw_output = result[0]["generated_text"]
         structured = parse_ai_response(raw_output)
+        dashboard_obj = convert_to_dashboard_format(structured)
 
         return {
             "model": MODEL_ID,
             "success": True,
-            "data": structured
+            "insight": dashboard_obj
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def build_prompt(data_type: str, content: str, file: str = "unknown") -> str:
+    """
+    Format prompt for model, instructing it to return JSON matching the dashboard
+    insight schema used in the frontend.
+    """
 
-def build_prompt(data_type: str, content: str) -> str:
-    """Format prompt for model, instructing it to return JSON matching Figma dashboard schema."""
     return f"""
-You are an AI that analyzes GitHub {data_type}s to provide metrics for a developer performance dashboard.
-Return a JSON object matching this schema:
+You are an AI that analyzes GitHub {data_type}s and generates insights for a
+developer performance dashboard. The dashboard expects a single JSON object with
+the following schema:
 
 {{
-  "summary": "string - concise explanation of what the PR or comment does",
+  "summary": "short explanation of what the PR or comment does",
   "sentiment": "positive | neutral | negative",
   "category": "feature | bugfix | refactor | documentation | other",
   "constructiveness_score": number between 0 and 1,
-  "suggestions": ["array of 1-3 brief, actionable suggestions"],
-  "confidence": number between 0 and 1
+  "suggestions": ["1-3 short actionable suggestions"],
+  "confidence": number between 0 and 1,
+  "file": "the filename from GitHub"
 }}
 
-{data_type.capitalize()} content to analyze:
+Important rules:
+- ALWAYS return valid JSON.
+- NEVER include markdown or commentary outside the JSON.
+- Keep responses concise and developer-friendly.
+- If information is missing or ambiguous, infer the best answer.
+
+File being analyzed: **{file}**
+
+Content to analyze:
+\"\"\" 
 {content}
+\"\"\"
 
 Respond with JSON only.
 """
+
 
 
 def parse_ai_response(output: str) -> dict:
@@ -112,6 +128,33 @@ def fallback_json(reason: str):
         "suggestions": ["No valid output generated."],
         "confidence": 0.5
     }
+def convert_to_dashboard_format (ai_json: dict) -> dict:
+    sentiment = ai_json.get("sentiment","neutral")
+    category = ai_json.get("category", "other")
+
+    type_map = {
+        "negative": "critical",
+        "positive": "positive",
+        "neutral": "suggestion"
+    }
+    type_value = type_map.get(sentiment, "suggestion")
+
+    color_map = {
+        "critical": "red",
+        "suggestion": "blue",
+        "positive": "green",
+        "warning": "yellow"
+    }
+
+    return {
+        "type": type_value,
+        "title": ai_json.get("summary", "AI Insight"),
+        "description": ai_json.get("suggestions", ["No description"])[0],
+        "file": ai_json.get("file", "N/A"),
+        "confidence": int(ai_json.get("confidence", 0.5) * 100),
+        "color": color_map.get(type_value, "gray")
+    }
+
 
 
 if __name__ == "__main__":

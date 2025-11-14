@@ -683,7 +683,8 @@ def analyze():
 
     payload = {
         "type": analysis_type,
-        "content": content
+        "content": content,
+        "file": data.get("file", "unknown")
     }
 
     try:
