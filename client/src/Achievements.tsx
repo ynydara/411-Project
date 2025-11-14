@@ -220,11 +220,19 @@ export function Achievements() {
                     p="lg"
                     radius="md"
                     style={{
-                        backgroundColor: "#161b22",
-                        borderColor: "#30363d",  //borderColor: achievement.earned ? "#16a34a" : "#30363d", different borders for if earned or not
-                        opacity: achievement.earned ? 1 : 0.6,
-                        transition: "border-color 0.2s ease",
+                            backgroundColor: "#161b22",
+                            borderColor: "#30363d",
+                            opacity: achievement.earned ? 1 : 0.6,
+                            transition: "border-color 0.2s ease",
                     }}
+                    onMouseEnter={(e) => {
+                        if (achievement.earned) {
+                            (e.currentTarget.style.borderColor = "#16a34a")
+                        }else {
+                            (e.currentTarget.style.borderColor = "#3e424a")
+                        }
+                    }}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30363d")}
                 >
                   <Group justify="space-between" mb="sm">
                     <ThemeIcon

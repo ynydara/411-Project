@@ -1,5 +1,7 @@
 import { LuZap, LuTrophy, LuTrendingUp, LuGitBranch, LuCodeXml, LuStar } from "react-icons/lu";
 import {Container, Title, Text, Button, Card, Grid, Group, Stack, Center, ThemeIcon, Box, } from "@mantine/core";
+import { useNavigate } from "react-router-dom";
+import {useAuth0} from "@auth0/auth0-react";
 
 const IconWrapper = ({ icon: Icon, size = 24 }: { icon: any; size?: number }) => <Icon size={size} />;
 
@@ -8,6 +10,8 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ onGetStarted }: LandingPageProps) {
+  const navigate = useNavigate();
+  const { loginWithRedirect, logout, isAuthenticated, user, isLoading } = useAuth0();
   const features = [
     { icon: LuZap, title: "AI-Powered Insights", description: "Get intelligent feedback on your code reviews with advanced AI analysis" },
     { icon: LuTrophy, title: "Gamified Experience", description: "Earn achievements, level up, and compete on the leaderboard" },
@@ -43,22 +47,25 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </Text>
 
           <Group mt="lg">
-            <Button color="green" size="md" onClick={onGetStarted} leftSection={<IconWrapper icon={LuCodeXml} size={18}  />}>
+            <Button color="green" size="md" onClick={() => navigate("/dashboard")} leftSection={<IconWrapper icon={LuCodeXml} size={18}  />}>
               Get Started
             </Button>
-            <Button
-              variant="transparent"
-              color="gray"
-              styles={{
-                root: {
-                  borderColor: "#30363d",
-                  color: "#ccc",
-                  "&:hover": { backgroundColor: "#21262d", color: "#fff" },
-                },
-              }}
-            >
-              Learn More
-            </Button>
+            {!isAuthenticated && (
+                <Button
+                  variant="transparent"
+                  color="gray"
+                  onClick={()=> loginWithRedirect()}
+                  styles={{
+                    root: {
+                      borderColor: "#30363d",
+                      color: "#ccc",
+                      "&:hover": { backgroundColor: "#21262d", color: "#fff" },
+                    },
+                  }}
+                >
+                  Login
+                </Button>
+            )}
           </Group>
         </Stack>
       </Container>
