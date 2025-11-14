@@ -3,11 +3,8 @@ import psycopg2
 from flasgger import Swagger
 from flask_cors import CORS
 import traceback
-# import jose import jwt
 import requests
 
-
-# run this only once pls
 def initdb():
     conn = psycopg2.connect(
         host="postgres",
@@ -16,31 +13,10 @@ def initdb():
         password="password"
     )
     cur = conn.cursor()
-    # cur.execute("""
-    #             CREATE TABLE IF NOT EXISTS leaderboard
-    #             (
-    #                 id SERIAL PRIMARY KEY,
-    #                 name TEXT NOT NULL,
-    #                 score INT NOT NULL
-    #             );
-    #             """)
-
-    # cur.execute("DELETE FROM leaderboard;") #delete this at some point
-    # cur.execute("SELECT COUNT(*) FROM leaderboard;")
-    # if cur.fetchone()[0] == 0:  # only inserts if empty
-    #     cur.execute("""
-    #                 INSERT INTO leaderboard (name, score)
-    #                 VALUES ('Amber', 100),
-    #                        ('Julie', 80),
-    #                        ('Alyssa', 60);
-    #                 """)
-
     conn.commit()
     cur.close()
     conn.close()
 
-
-# this is the connection for da database
 def getdbconnection():
     conn = psycopg2.connect(
         host="postgres",
@@ -53,7 +29,12 @@ def getdbconnection():
 
 app = Flask(__name__)
 swagger = Swagger(app)
-CORS(app, origins=["http://localhost:3000"])
+CORS(app,
+    resources={r"/*": {"origins": ["http://localhost:3000"]}},
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["Authorization"]
+)
 
 
 # empty route/login screen
@@ -115,7 +96,6 @@ def getUsers():
         cur.execute(
             "SELECT id, githubId, (code_score + comment_score) AS total_score FROM users ORDER BY total_score DESC;")
 
-    # cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -580,17 +560,10 @@ def achievements_by_nickname(nickname):
     finally:
         conn.close()
 
-
-# @app.route('/api/achievements')
-# def profile():
-#     return "Acheivements"
-
 @app.route('/api/settings')
 def settings():
     return "Settings"
 
-
-# ai_url = "http://ai-service:8000"
 ai_url = "http://ai-service:8000/api"
 
 @app.route('/api/analyze', methods=['POST'])
@@ -631,6 +604,35 @@ def review():
         return jsonify(resp.json())
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/github_data")
+def github_data():
+
+    auth_header = request.headers.get("Authorization")
+    print(auth_header)
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Missing or invalid Authorization header", "authheader": auth_header}), 401
+
+    token = auth_header[len("Bearer "):].strip()
+    headers = {"Authorization": f"token {token}"}
+    user_resp = requests.get("https://api.github.com/user", headers=headers)
+    if user_resp.status_code != 200:
+        return jsonify({"error": "Failed to fetch GitHub user", "details": user_resp.text}), user_resp.status_code
+
+    user_data = user_resp.json()
+
+    #username = user_data["login"]
+    username = "ynydara"
+    repo = "411-project"
+    url = f"https://api.github.com/repos/{username}/{repo}/pulls"
+    print(url)
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        return jsonify({"error": "GitHub API request failed", "details": response.text, "url":url}), response.status_code
+
+    return jsonify(response.json())
 
 
 if __name__ == '__main__':

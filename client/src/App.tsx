@@ -15,10 +15,13 @@ import classes from './HeaderSimple.module.css';
 import LoginPage from "./LoginPage";
 import GitHubIconLink from "./GitHubIconLink";
 
+import Githubint from "./Githubint";
+
 const links = [
   { link: '/', label: 'Dashboard' },
   { link: '/leaderboard', label: 'Leaderboard' },
     { link: '/achievements', label: 'Achievements'},
+    {link: '/githubint', label: 'githubint'}
 
 ];
 
@@ -115,6 +118,7 @@ function App() {
         <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/achievements" element={<AchievementsPage/>}/>
          <Route path="/input" element={<PrInputPage />} />
+          <Route path="/githubitn" element={<Githubint />} />
       </Routes>
      </Router>
 

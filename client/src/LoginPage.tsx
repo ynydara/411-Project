@@ -18,6 +18,8 @@ const leaderboardData: LeaderBoardUser[] = [
         { rank: 3, name: "Bob Johnson", score: 1230, color: "orange", badgeColor: "red" },
     ];
 
+
+
 function LoginPage() {
     const { loginWithRedirect, logout, isAuthenticated, user, isLoading } = useAuth0();
 
@@ -121,10 +123,6 @@ function LoginPage() {
                                 ))}
                               </Stack>
                             </Card>
-
-
-
-
                 </Center>
               </Card>
         </Container>

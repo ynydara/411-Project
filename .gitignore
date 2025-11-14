@@ -7,3 +7,5 @@ flask-server/Ai/GITHUB_TOKEN.env
 *.hpp
 .venv
 client/src/env.json
+.vscode
+*.env

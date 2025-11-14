@@ -5,6 +5,8 @@ import { LineChart, Heatmap, DonutChart } from '@mantine/charts';
 import '@mantine/core/styles.css';
 import '@mantine/charts/styles.css';
 import {useAuth0} from "@auth0/auth0-react";
+import * as jwt from 'jsonwebtoken';
+import { useLocation } from "react-router-dom";
 
 interface LeaderboardEntry {
     name: string;
@@ -24,20 +26,50 @@ async function addUserToLeaderboard(user: any) {
     body: JSON.stringify({ githubId: user.nickname, comment_score: 0, code_score: 0 }),
   });
 }
-
 function DashboardPage() {
   const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
   const [achievements, setAchievements] = useState<Achievement[] | null>(null);
-  const { user, isAuthenticated, isLoading } = useAuth0();
+  const { getAccessTokenSilently ,user, isAuthenticated, isLoading, error } = useAuth0();
 
+  console.log("Auth0 user:", user);
+  console.error('ERR', error)
   const [metrics] = useState({
     helpfulness: 4.2,
     tonePositive: 87,
     technicalAccuracy: 92,
   });
+async function fetchGitHubData() {
+  const token = await getAccessTokenSilently({
+    authorizationParams: {
+      audience: "https://api.github.com",
+      //connection: "GitHub",
+      scope: "read:user user:email public_repo"
+
+    }
+  });
+
+  const res = await fetch("http://localhost:5000/api/github_data", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  const data = await res.json();
+  console.log(data);
+}
+
+useEffect(() => {
+  if (isAuthenticated && user) {
+    fetchGitHubData();
+  }
+}, [isAuthenticated, user]);
 
  useEffect(() => {
     if (isAuthenticated && user) {
+        console.log(user);
+        console.log(user.name);
+        console.log(user.sub);
+        console.log(user.email);
       fetch(`/api/users/by-nickname/${user.nickname}/achievements`)
         .then((res) => res.json())
         .then((res) => setAchievements(res))
@@ -113,6 +145,7 @@ function DashboardPage() {
 
     // @ts-ignore
     return user ? (
+
     <div style={{ padding: "2rem"}}>
         <Title order={1} ta="center" >
             Welcome back, {user.name}!
@@ -141,7 +174,9 @@ function DashboardPage() {
                 }
                 radius="xl"
             />
+
                 <Text>{member.name}</Text>
+
                 <Text c="dimmed" ml="auto">
                   {member.score}
                 </Text>
