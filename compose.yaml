@@ -38,8 +38,8 @@ services:
       dockerfile: Dockerfile
     container_name: ai-service
     command: uvicorn aiapp:app --host 0.0.0.0 --port 8000
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     volumes:
       - ./flask-server/Ai:/app
       - hf_cache:/app/hf_cache  # persistent model cache

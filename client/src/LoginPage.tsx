@@ -5,6 +5,7 @@ import {useAuth0} from "@auth0/auth0-react";
 import { Text, Card, Center, Button, Container, Group, Stack, Avatar, Badge } from "@mantine/core";
 import '@mantine/core/styles.css';
 
+
 type LeaderBoardUser = {
     rank: number;
     name: string;
@@ -18,6 +19,7 @@ const leaderboardData: LeaderBoardUser[] = [
         { rank: 3, name: "Bob Johnson", score: 1230, color: "orange", badgeColor: "red" },
     ];
 
+
 function LoginPage() {
     const { loginWithRedirect, logout, isAuthenticated, user, isLoading, getAccessTokenSilently } = useAuth0();
      const [githubToken, setGithubToken] = useState<string | null>(null);
@@ -27,6 +29,7 @@ function LoginPage() {
             try {
                 const token = await getAccessTokenSilently();
                 setGithubToken(token);
+                //put cookie stuff here
             } catch (err) {
                 console.error("Error getting GitHub token:", err);
             }

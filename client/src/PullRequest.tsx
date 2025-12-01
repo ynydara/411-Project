@@ -11,11 +11,11 @@ export default function AIAnalyzer() {
   setResponse(null);
 
   try {
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: input }),
-    });
+   const res = await fetch("http://localhost:5000/api/analyze", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ type: "pr", content: input }),
+});
 
     if (!res.ok) {
       setResponse(`⚠️ Server returned ${res.status}: ${res.statusText}`);

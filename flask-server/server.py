@@ -1,9 +1,9 @@
+import traceback
+
 from flask import Flask, jsonify, request
 import psycopg2
 from flasgger import Swagger
 from flask_cors import CORS
-import traceback
-# import jose import jwt
 import requests
 
 
@@ -16,25 +16,6 @@ def initdb():
         password="password"
     )
     cur = conn.cursor()
-    # cur.execute("""
-    #             CREATE TABLE IF NOT EXISTS leaderboard
-    #             (
-    #                 id SERIAL PRIMARY KEY,
-    #                 name TEXT NOT NULL,
-    #                 score INT NOT NULL
-    #             );
-    #             """)
-
-    # cur.execute("DELETE FROM leaderboard;") #delete this at some point
-    # cur.execute("SELECT COUNT(*) FROM leaderboard;")
-    # if cur.fetchone()[0] == 0:  # only inserts if empty
-    #     cur.execute("""
-    #                 INSERT INTO leaderboard (name, score)
-    #                 VALUES ('Amber', 100),
-    #                        ('Julie', 80),
-    #                        ('Alyssa', 60);
-    #                 """)
-
     conn.commit()
     cur.close()
     conn.close()
@@ -115,7 +96,6 @@ def getUsers():
         cur.execute(
             "SELECT id, githubId, (code_score + comment_score) AS total_score FROM users ORDER BY total_score DESC;")
 
-    # cur.execute('SELECT id , name, score FROM leaderboard ORDER BY score DESC;')
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -558,8 +538,6 @@ def give_user_achievement(user_id):
 
     return jsonify({"message": "Achievement granted"}), 201
 
-
-
 @app.route('/api/users/by-nickname/<nickname>/achievements', methods=['GET'])
 def achievements_by_nickname(nickname):
     conn = getdbconnection()
@@ -581,18 +559,9 @@ def achievements_by_nickname(nickname):
     finally:
         conn.close()
 
-
-# @app.route('/api/achievements')
-# def profile():
-#     return "Acheivements"
-
-@app.route('/api/settings')
-def settings():
-    return "Settings"
-
-
-# ai_url = "http://ai-service:8000"
+FLASK_URL = "http://python-flask-server:5000/api"
 AI_SERVICE_URL = "http://ai-service:8000/api"
+# AI_SERVICE_URL = "http://localhost:8000/api"
 GITHUB_API = "https://api.github.com"
 
 def github_get(endpoint: str, token: str):
@@ -612,15 +581,10 @@ def get_user_prs():
         return jsonify({"error": "Missing GitHub OAuth token"}), 401
 
     token = token.replace("Bearer ", "")
-
-    # Step 1 — who is the user?
     user, err = github_get("/user", token)
     if err:
         return jsonify({"error": "Failed to identify user", "details": err}), 400
-
     username = user["login"]
-
-    # Step 2 — search PRs authored by the user
     prs, err = github_get(
         f"/search/issues?q=type:pr+author:{username}+is:open",
         token
@@ -631,7 +595,6 @@ def get_user_prs():
 
     return jsonify(prs)
 
-#For A Specific Repository
 @app.route("/api/github/repos/<owner>/<repo>/prs", methods=["GET"])
 def get_repo_prs(owner, repo):
     token = request.headers.get("Authorization")
@@ -647,7 +610,6 @@ def get_repo_prs(owner, repo):
 
     return jsonify(prs)
 
-#Fetch Pr Details
 @app.route("/api/github/pr/<owner>/<repo>/<int:number>", methods=["GET"])
 def get_pr_details(owner, repo, number):
     token = request.headers.get("Authorization")
@@ -656,12 +618,10 @@ def get_pr_details(owner, repo, number):
 
     token = token.replace("Bearer ", "")
 
-    # PR metadata
     pr, err = github_get(f"/repos/{owner}/{repo}/pulls/{number}", token)
     if err:
         return jsonify({"error": "Failed to fetch PR", "details": err}), 400
 
-    # PR files
     files, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{number}/files", token)
     if err2:
         return jsonify({"error": "Failed to fetch PR files", "details": err2}), 400
@@ -671,10 +631,85 @@ def get_pr_details(owner, repo, number):
         "files": files
     })
 
-#Send to AI
+
+
+def compute_score(sentiment: str, constructiveness: float) -> float:
+    """Compute score based on rubric."""
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0
+    }.get(sentiment.lower(), 0.5)
+
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+    return round(score, 2)
+
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    """Proxy for AI analysis"""
+    # parse through ai output for a predetermined string and add points to the leaderboard. The below should somewhat do this
+    #amber please test this. My PC cant run it, but yours might for whatever reason
+    try:
+        data = request.get_json(force=True)
+        print(data) #check this
+        user_id = data.get("user_id") #might need to get the user_id a diff way amber
+        content = data.get("content")
+        analysis_type = data.get("type", "text")
+
+        if not content or not user_id:
+            return jsonify({"error": "Missing content or missing user_id"}), 400
+
+        payload = {"type": analysis_type, "content": content}
+
+        try:
+            resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=600)
+            resp.raise_for_status()  # will throw HTTPError
+
+            try:
+                result = resp.json()
+                print("AI Service response:", result)
+                sentiment = result.get("sentiment", "neutral")
+                constructiveness = result.get("constructiveness", 0.5)
+
+                score = compute_score(sentiment, constructiveness)
+
+                conn = getdbconnection()
+                try:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            "UPDATE users SET code_score = code_score + %s WHERE id = %s RETURNING id, code_score;",
+                            (score, user_id)
+                        )
+                        updated = cursor.fetchone()
+                        if not updated:
+                            return jsonify({"error": "User not found"}), 404
+                        conn.commit()
+                finally:
+                    conn.close()
+                return jsonify(resp.json()) #unsure if this is what needs to be returned. check this later cant test on my pc -alyssa
+#do we want the score to also be displayed in the output as well? right now it is not included, only the response is being shown
+
+               # return jsonify(result)
+            except ValueError:
+                print("Invalid JSON from AI service:", resp.text)
+                traceback.print_exc()
+                return jsonify({"error": "Invalid JSON from AI service"}), 500
+
+        except requests.exceptions.RequestException as e:
+            print("Error contacting AI service:", e)
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    print("Response text:", e.response.text)
+                except Exception:
+                    pass
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        print("Unhandled exception in api/analyze:", e)
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+def calculatePointsBasedOnAIOutput():
     data = request.json or {}
     content = data.get("content")
     analysis_type = data.get("type", "text")
@@ -682,17 +717,15 @@ def analyze():
     if not content:
         return jsonify({"error": "Missing content"}), 400
 
+
+
+
     payload = {
+
         "type": analysis_type,
         "content": content
-    }
 
-    try:
-        resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+    }
 
 
 @app.route("/health")

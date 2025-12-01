@@ -1,4 +1,3 @@
-
 import os
 import json
 import re
@@ -30,7 +29,7 @@ def root():
     return {"status": "ok", "service": "ai-service"}
 
 
-@app.post("/analyze")
+@app.post("/api/analyze")
 def analyze(payload: AnalysisRequest):
     """
     Accepts GitHub PR, comment, or code diff and returns structured analysis data
@@ -41,7 +40,7 @@ def analyze(payload: AnalysisRequest):
 
         result = generator(
             prompt,
-            max_new_tokens=400,
+            max_new_tokens=128,
             temperature=0.6,
             top_p=0.9,
         )
