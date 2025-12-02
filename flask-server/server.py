@@ -597,7 +597,7 @@ GITHUB_API = "https://api.github.com"
 
 def github_get(endpoint: str, token: str):
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"token {token}",  # <-- use 'token' instead of 'Bearer'
         "Accept": "application/vnd.github+json"
     }
     r = requests.get(f"{GITHUB_API}{endpoint}", headers=headers)
@@ -671,29 +671,95 @@ def get_pr_details(owner, repo, number):
         "files": files
     })
 
+def compute_score(sentiment: str, constructiveness: float) -> float:
+    """Compute score based on rubric."""
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0
+    }.get(sentiment.lower(), 0.5)
+
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+
+    intScore = int(round(score,2)) #database only accepts ints, no decimals
+    return intScore
+
+
 #Send to AI
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    """Proxy for AI analysis"""
-    data = request.json or {}
-    content = data.get("content")
-    analysis_type = data.get("type", "text")
-
-    if not content:
-        return jsonify({"error": "Missing content"}), 400
-
-    payload = {
-        "type": analysis_type,
-        "content": content
-    }
-
     try:
-        resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+        data = request.get_json(force=True)
+        print(data) #check this
+        user_id = data.get("user_id") #might need to get the user_id a diff way amber
+        content = data.get("content")
+        analysis_type = data.get("type", "text")
+        sentiment = "neutral" #to be overridden, but init will be neutral
+        if not content or not user_id:
+            return jsonify({"error": "Missing content or missing user_id"}), 400
 
+        payload = {"type": analysis_type, "content": content}
+
+        try:
+            resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=600)
+            resp.raise_for_status()  # will throw HTTPError
+
+            try:
+                result = resp.json()
+                print("AI Service response:", result)
+
+                #getting all the stuff from the result that will be used to compute the score
+                if(result.get("sentiment") == "positive"):
+                    sentiment = "positive"
+                    print("positive")
+                if(result.get("sentiment") == "neutral"):
+                    sentiment = "neutral"
+                    print("neutral")
+                if(result.get("sentiment") == "negative"):
+                    sentiment = "negative"
+                    print("negative")
+
+
+              #  sentiment = result.get("sentiment", "neutral")
+                constructiveness = result.get("constructiveness") #should be a decimal according to aiapp.py, we can change this but that requires editing the ai
+
+                score = compute_score(sentiment, constructiveness)
+
+                conn = getdbconnection()
+                try:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            "UPDATE users SET code_score = code_score + %s WHERE id = %s RETURNING id, code_score;",
+                            (score, user_id)
+                        )
+                        updated = cursor.fetchone()
+                        if not updated:
+                            return jsonify({"error": "User not found"}), 404
+                        conn.commit()
+                finally:
+                    conn.close()
+                return jsonify(resp.json()) #unsure if this is what needs to be returned. check this later cant test on my pc -alyssa
+#do we want the score to also be displayed in the output as well? right now it is not included, only the response is being shown
+
+               # return jsonify(result)
+            except ValueError:
+                print("Invalid JSON from AI service:", resp.text)
+                traceback.print_exc()
+                return jsonify({"error": "Invalid JSON from AI service"}), 500
+
+        except requests.exceptions.RequestException as e:
+            print("Error contacting AI service:", e)
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    print("Response text:", e.response.text)
+                except Exception:
+                    pass
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        print("Unhandled exception in api/analyze:", e)
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/health")
 def health():

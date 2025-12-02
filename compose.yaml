@@ -28,32 +28,32 @@ services:
     depends_on:
 #      - ts-client #remove if need to remove. Flask will wait for ts-client
       - postgres # Flask waits for PostgreSQL
-      - ai-service
+#      - ai-service
     environment:
       DATABASE_URL: postgres://user:password@postgres:5432/mydb
 
-  ai-service:
-    build:
-      context: ./flask-server/Ai
-      dockerfile: Dockerfile
-    container_name: ai-service
-    command: uvicorn aiapp:app --host 0.0.0.0 --port 8000
-    expose:
-      - "8000"
-    volumes:
-      - ./flask-server/Ai:/app
-      - hf_cache:/app/hf_cache  # persistent model cache
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
-    env_file:
-      - ./huggingFaceConfig.env
-    networks:
-      - appnet
+#  ai-service:
+#    build:
+#      context: ./flask-server/Ai
+#      dockerfile: Dockerfile
+#    container_name: ai-service
+#    command: uvicorn aiapp:app --host 0.0.0.0 --port 8000
+#    expose:
+#      - "8000"
+#    volumes:
+#      - ./flask-server/Ai:/app
+#      - hf_cache:/app/hf_cache  # persistent model cache
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [ gpu ]
+#    env_file:
+#      - ./huggingFaceConfig.env
+#    networks:
+#      - appnet
   postgres:
     image: postgres:15
     container_name: postgres

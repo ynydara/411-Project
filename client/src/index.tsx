@@ -30,6 +30,7 @@ root.render(
                     connection: "GitHub",
                     scope:"openid profile email read:user repo user:email",
                 }}
+
             >
                 <App />
             </Auth0Provider>

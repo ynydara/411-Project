@@ -1,10 +1,9 @@
-
 import os
 import json
 import re
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import login
 
 # ---------------------- CONFIG ------------------------
@@ -14,9 +13,28 @@ MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"
 if not HF_TOKEN:
     raise ValueError("Missing Hugging Face API key in environment variables")
 
-login(HF_TOKEN)
+# login(HF_TOKEN)
 print(f"🔹 Loading model: {MODEL_ID}")
-generator = pipeline("text-generation", model=MODEL_ID, device_map="auto")
+#generator = pipeline("text-generation", model=MODEL_ID, device_map="auto")
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, use_auth_token=HF_TOKEN)
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    token=HF_TOKEN,
+    device_map="auto",
+    torch_dtype="auto",
+    low_cpu_mem_usage=True,
+    offload_folder="/app/hf_cache"
+)
+
+model.config.pad_token_id = tokenizer.eos_token_id
+generator = pipeline(
+    "text-generation",
+    model=model,
+    tokenizer=tokenizer,
+    return_full_text=False
+)
 
 # ---------------------- APP INIT ----------------------
 app = FastAPI(title="AI-Service", version="3.0", description="Analyzes GitHub PRs for dashboard insights")
@@ -41,7 +59,7 @@ def analyze(payload: AnalysisRequest):
 
         result = generator(
             prompt,
-            max_new_tokens=400,
+            max_new_tokens=256, #was 400
             temperature=0.6,
             top_p=0.9,
         )

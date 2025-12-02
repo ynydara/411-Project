@@ -41,6 +41,8 @@ function DashboardPage() {
   const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
   const [achievements, setAchievements] = useState<Achievement[] | null>(null);
   const { user, isAuthenticated, isLoading } = useAuth0();
+  const { getAccessTokenSilently } = useAuth0();
+
 
   const [metrics] = useState({
     helpfulness: 4.2,
@@ -59,6 +61,48 @@ function DashboardPage() {
         });
     }
   }, [isAuthenticated, user]);
+
+
+ async function getGithubToken() {
+  try {
+    const token = await getAccessTokenSilently({
+      authorizationParams: {
+        scope: "read:user repo"
+      }
+    });
+    return token;
+  } catch (err) {
+    console.error("Failed to get GitHub token", err);
+    return null;
+  }
+}
+// const [prs, setPRs] = useState<any[]>([]);
+// useEffect(() => {
+//   const fetchPRs = async () => {
+//     if (isAuthenticated && user) {
+//       const token = await getGithubToken();
+//       if (!token) return;
+//
+//       const owner = "ynydara";
+//       const repo = "411-project";
+//
+//       try {
+//         const res = await fetch(`http://localhost:5000/api/github/repos/${owner}/${repo}/prs`, {
+//           headers: { "Authorization": `Bearer ${token}` },
+//         });
+//         const data = await res.json();
+//         // setPRs(data);
+//           setPRs(Array.isArray(data) ? data : []);
+//         console.log("PRs:", data);
+//       } catch (err) {
+//         console.error(err);
+//       }
+//     }
+//   };
+//
+//   fetchPRs();
+// }, [isAuthenticated, user]);
+
 
   const heatData = {
     "2025-02-14": 2,
@@ -240,6 +284,7 @@ function DashboardPage() {
           </Card>
         </Grid.Col>
       </Grid>
+
     </div>
   ) : null;
 }
