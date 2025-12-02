@@ -1,162 +1,183 @@
-
 import os
 import json
 import re
+import traceback
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from transformers import pipeline
-from huggingface_hub import login
+from huggingface_hub import InferenceClient
 
 # ---------------------- CONFIG ------------------------
 HF_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
-MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"
+MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"  # exact HF repo id
 
 if not HF_TOKEN:
     raise ValueError("Missing Hugging Face API key in environment variables")
 
-login(HF_TOKEN)
-print(f"🔹 Loading model: {MODEL_ID}")
-generator = pipeline("text-generation", model=MODEL_ID, device_map="auto")
+# Use HF Inference API instead of loading model locally
+client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
+print(f"🔹 Using HF Inference API model: {MODEL_ID}")
 
-# ---------------------- APP INIT ----------------------
-app = FastAPI(title="AI-Service", version="3.0", description="Analyzes GitHub PRs for dashboard insights")
+# ---------------------- FASTAPI INIT -------------------
+app = FastAPI(title="AI-Service", version="3.0")
+
 
 class AnalysisRequest(BaseModel):
     type: str   # "pr" | "comment" | "code"
     content: str
+    file: str = "unknown"
+
 
 @app.get("/")
 def root():
     return {"status": "ok", "service": "ai-service"}
 
 
-@app.post("/analyze")
+# ---------------------- ANALYZE ENDPOINT ----------------
+@app.post("/api/analyze")
 def analyze(payload: AnalysisRequest):
-    """
-    Accepts GitHub PR, comment, or code diff and returns structured analysis data
-    matching the Figma frontend schema.
-    """
     try:
-        prompt = build_prompt(payload.type, payload.content, payload.file)
+        # Chat-style call
+        system_msg = (
+            "You are an AI that analyzes GitHub pull requests, comments, or code "
+            "and returns ONLY JSON in a fixed schema. Do not include markdown or text "
+            "outside the JSON object."
+        )
 
-        result = generator(
-            prompt,
-            max_new_tokens=400,
+        user_prompt = build_prompt(payload.type, payload.content, payload.file)
+
+        resp = client.chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=300,
             temperature=0.6,
             top_p=0.9,
         )
 
-        raw_output = result[0]["generated_text"]
+        # HF returns an object; extract the text
+        raw_output = resp.choices[0].message["content"]
+        print("🔹 HF output (truncated):", repr(raw_output)[:200])
+
         structured = parse_ai_response(raw_output)
         dashboard_obj = convert_to_dashboard_format(structured)
 
         return {
             "model": MODEL_ID,
             "success": True,
-            "insight": dashboard_obj
+            "data": structured,
+            "insight": dashboard_obj,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("❌ Error in /api/analyze:", repr(e))
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"HF error: {e}")
+
+
+# ---------------------- HELPERS -------------------------
 
 def build_prompt(data_type: str, content: str, file: str = "unknown") -> str:
-    """
-    Format prompt for model, instructing it to return JSON matching the dashboard
-    insight schema used in the frontend.
-    """
-
     return f"""
-You are an AI that analyzes GitHub {data_type}s and generates insights for a
-developer performance dashboard. The dashboard expects a single JSON object with
-the following schema:
+You are an AI that analyzes GitHub {data_type}s.
+
+Return ONLY valid JSON in exactly this schema and value ranges:
 
 {{
-  "summary": "short explanation of what the PR or comment does",
-  "sentiment": "positive | neutral | negative",
-  "category": "feature | bugfix | refactor | documentation | other",
+  "summary": "short explanation (string)",
+  "sentiment": "positive" | "neutral" | "negative",
+  "category": "feature" | "bugfix" | "refactor" | "documentation" | "other",
   "constructiveness_score": number between 0 and 1,
-  "suggestions": ["1-3 short actionable suggestions"],
+  "suggestions": ["1-3 short actionable suggestions (strings)"],
   "confidence": number between 0 and 1,
-  "file": "the filename from GitHub"
+  "file": "{file}"
 }}
 
-Important rules:
-- ALWAYS return valid JSON.
-- NEVER include markdown or commentary outside the JSON.
-- Keep responses concise and developer-friendly.
-- If information is missing or ambiguous, infer the best answer.
+Do not include any extra keys. Do not include markdown or explanation outside the JSON.
 
-File being analyzed: **{file}**
-
-Content to analyze:
+Content:
 \"\"\" 
 {content}
-\"\"\"
-
-Respond with JSON only.
+\"\"\" 
 """
 
 
-
 def parse_ai_response(output: str) -> dict:
-    """Extract valid JSON from model output and safely parse."""
     match = re.search(r"\{.*\}", output, re.DOTALL)
+
+    def fallback_json(reason: str):
+        return {
+            "summary": reason,
+            "sentiment": "neutral",
+            "category": "other",
+            "constructiveness_score": 0.5,
+            "suggestions": ["No valid output generated."],
+            "confidence": 0.5,
+            "file": "unknown",
+        }
+
     if not match:
         return fallback_json("Unable to parse model output")
 
     try:
         parsed = json.loads(match.group())
-        # Ensure all required fields exist for frontend binding
+
+        # Raw values from model
+        raw_sentiment = parsed.get("sentiment", "neutral")
+        raw_category = parsed.get("category", "other")
+        raw_construct = parsed.get("constructiveness_score", 0.5)
+        raw_confidence = parsed.get("confidence", 0.5)
+
+        # Clamp sentiment to allowed values
+        if raw_sentiment not in {"positive", "neutral", "negative"}:
+            raw_sentiment = "neutral"
+
+        # Clamp category
+        if raw_category not in {"feature", "bugfix", "refactor", "documentation", "other"}:
+            raw_category = "other"
+
+        # Clamp numeric fields into [0, 1]
+        try:
+            constructiveness = float(raw_construct)
+        except (TypeError, ValueError):
+            constructiveness = 0.5
+        constructiveness = max(0.0, min(1.0, constructiveness))
+
+        try:
+            confidence = float(raw_confidence)
+        except (TypeError, ValueError):
+            confidence = 0.5
+        confidence = max(0.0, min(1.0, confidence))
+
         return {
             "summary": parsed.get("summary", ""),
-            "sentiment": parsed.get("sentiment", "neutral"),
-            "category": parsed.get("category", "other"),
-            "constructiveness_score": parsed.get("constructiveness_score", 0.5),
+            "sentiment": raw_sentiment,
+            "category": raw_category,
+            "constructiveness_score": constructiveness,
             "suggestions": parsed.get("suggestions", []),
-            "confidence": parsed.get("confidence", 0.5),
+            "confidence": confidence,
+            "file": parsed.get("file", "unknown"),
         }
     except Exception:
         return fallback_json("Invalid JSON returned from model")
 
-
-def fallback_json(reason: str):
-    """Fallback safe default JSON."""
-    return {
-        "summary": reason,
-        "sentiment": "neutral",
-        "category": "other",
-        "constructiveness_score": 0.5,
-        "suggestions": ["No valid output generated."],
-        "confidence": 0.5
-    }
-def convert_to_dashboard_format (ai_json: dict) -> dict:
-    sentiment = ai_json.get("sentiment","neutral")
-    category = ai_json.get("category", "other")
-
+def convert_to_dashboard_format(ai_json: dict) -> dict:
     type_map = {
         "negative": "critical",
         "positive": "positive",
-        "neutral": "suggestion"
+        "neutral": "suggestion",
     }
+    sentiment = ai_json.get("sentiment", "neutral")
     type_value = type_map.get(sentiment, "suggestion")
-
-    color_map = {
-        "critical": "red",
-        "suggestion": "blue",
-        "positive": "green",
-        "warning": "yellow"
-    }
 
     return {
         "type": type_value,
-        "title": ai_json.get("summary", "AI Insight"),
-        "description": ai_json.get("suggestions", ["No description"])[0],
-        "file": ai_json.get("file", "N/A"),
-        "confidence": int(ai_json.get("confidence", 0.5) * 100),
-        "color": color_map.get(type_value, "gray")
+        "title": ai_json["summary"],
+        "description": ai_json["suggestions"][0] if ai_json["suggestions"] else "",
+        "file": ai_json["file"],
+        "confidence": int(ai_json["confidence"] * 100),
+        "color": {
+            "critical": "red",
+            "suggestion": "blue",
+            "positive": "green",
+        }.get(type_value, "gray"),
     }
-
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)

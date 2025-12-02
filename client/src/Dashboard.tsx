@@ -1,3 +1,5 @@
+// src/Dashboard.tsx
+
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -12,8 +14,8 @@ import {
   Title,
   ThemeIcon,
   Loader,
+  type MantineColor,
 } from "@mantine/core";
-import type { MantineColor } from "@mantine/core";
 import {
   AlertCircle,
   CheckCircle2,
@@ -27,11 +29,38 @@ import {
 } from "lucide-react";
 import { useAuth0 } from "@auth0/auth0-react";
 
-// ---------- Types ----------
+const CLAIM_NAMESPACE = "https://codearena.app";
+
+function decodeJwt(token?: string): any | null {
+  if (!token) return null;
+
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+
+    const payload = parts[1];
+
+    // base64url -> base64
+    let base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padding = 4 - (base64.length % 4);
+    if (padding !== 4) {
+      base64 += "=".repeat(padding);
+    }
+
+    const json = atob(base64);
+    return JSON.parse(json);
+  } catch (e) {
+    console.error("Failed to decode JWT:", e);
+    return null;
+  }
+}
+
+// ==================================================
+// TYPES
+// ==================================================
 
 type Sentiment = "positive" | "neutral" | "negative";
 type Category = "feature" | "bugfix" | "refactor" | "documentation" | "other";
-
 type AiInsightType = "critical" | "suggestion" | "positive" | "warning";
 
 interface AiAnalysisData {
@@ -54,11 +83,10 @@ interface GithubUser {
   avatar_url: string | null;
 }
 
-interface GithubSearchIssueItem {
+interface GithubPR {
   id: number;
   number: number;
   title: string;
-  state: string;
   created_at: string;
   comments: number;
   user: GithubUser;
@@ -66,8 +94,8 @@ interface GithubSearchIssueItem {
 }
 
 interface GithubSearchResponse {
-  total_count: number;
-  items: GithubSearchIssueItem[];
+  total_count?: number;
+  items: GithubPR[];
 }
 
 interface AiInsight {
@@ -85,7 +113,7 @@ interface RecentReview {
   pr: string;
   title: string;
   author: string;
-  score: number; // 0–100
+  score: number;
   status: ReviewStatus;
 }
 
@@ -96,20 +124,48 @@ interface StatCard {
   icon: LucideIcon;
   color: MantineColor;
 }
-
-interface StatsSummary {
-  reviewsThisWeek: number;
-  avgReviewScore: number;
-  commentsMade: number;
-  codeQuality: number;
+declare global {
+  interface Window {
+    getToken?: (options?: any) => Promise<any>;
+  }
 }
 
-// ---------- Helpers ----------
+// ==================================================
+// HELPERS
+// ==================================================
 
-const IconWrapper: React.FC<{ icon: LucideIcon; size?: number }> = ({
-  icon: Icon,
-  size = 24,
-}) => <Icon size={size} />;
+/**
+ * Extract the GitHub token from Auth0's token response.
+ * Assumes an Auth0 Action has added "github_access_token" to the token claims.
+ */
+async function getGithubToken(
+  getAccessTokenSilently: (options?: any) => Promise<any>
+): Promise<string> {
+  const verbose: any = await getAccessTokenSilently({ detailedResponse: true });
+
+  const claimToken: string | undefined =
+    verbose?.decodedToken?.claims?.github_access_token ??
+    verbose?.id_token_claims?.github_access_token ??
+    verbose?.accessToken?.github_access_token;
+
+  if (!claimToken) {
+    throw new Error("GitHub token missing — check Auth0 Action / claims mapping.");
+  }
+
+  return claimToken;
+}
+
+const sentimentToInsightType = (sentiment: Sentiment): AiInsightType => {
+  switch (sentiment) {
+    case "negative":
+      return "critical";
+    case "positive":
+      return "positive";
+    case "neutral":
+    default:
+      return "suggestion";
+  }
+};
 
 const insightTypeToIcon = (type: AiInsightType): LucideIcon => {
   switch (type) {
@@ -139,22 +195,9 @@ const insightTypeToColor = (type: AiInsightType): MantineColor => {
   }
 };
 
-const sentimentToInsightType = (sentiment: Sentiment): AiInsightType => {
-  switch (sentiment) {
-    case "negative":
-      return "critical";
-    case "positive":
-      return "positive";
-    case "neutral":
-    default:
-      return "suggestion";
-  }
-};
-
-const scoreFromAnalysis = (analysis: AiAnalysisData): number => {
-  // very simple model → scale constructiveness + confidence to 0–100
-  const base = analysis.constructiveness_score || 0;
-  const conf = analysis.confidence || 0.5;
+const scoreFromAnalysis = (a: AiAnalysisData): number => {
+  const base = a.constructiveness_score ?? 0;
+  const conf = a.confidence ?? 0.5;
   const score = (0.7 * base + 0.3 * conf) * 100;
   return Math.round(Math.min(100, Math.max(0, score)));
 };
@@ -170,191 +213,213 @@ const isWithinLastNDays = (dateStr: string, days: number): boolean => {
   return diffDays <= days;
 };
 
-// ---------- Default / fallback UI data ----------
-
-const DEFAULT_STATS_CARDS: StatCard[] = [
-  { label: "Reviews This Week", value: "0", trend: "+0%", icon: GitPullRequest, color: "green" },
-  { label: "Avg Review Score", value: "0", trend: "+0%", icon: TrendingUp, color: "green" },
-  { label: "Comments Made", value: "0", trend: "+0%", icon: MessageSquare, color: "green" },
-  { label: "Code Quality", value: "0%", trend: "+0%", icon: Code2, color: "green" },
+const DEFAULT_STATS: StatCard[] = [
+  {
+    label: "Reviews This Week",
+    value: "0",
+    trend: "+0%",
+    icon: GitPullRequest,
+    color: "green",
+  },
+  {
+    label: "Avg Review Score",
+    value: "0",
+    trend: "+0%",
+    icon: TrendingUp,
+    color: "green",
+  },
+  {
+    label: "Comments Made",
+    value: "0",
+    trend: "+0%",
+    icon: MessageSquare,
+    color: "green",
+  },
+  {
+    label: "Code Quality",
+    value: "0%",
+    trend: "+0%",
+    icon: Code2,
+    color: "green",
+  },
 ];
 
-// ---------- Main Component ----------
+const IconWrapper: React.FC<{ icon: LucideIcon; size?: number }> = ({
+  icon: Icon,
+  size = 24,
+}) => <Icon size={size} />;
+
+// ==================================================
+// MAIN COMPONENT
+// ==================================================
 
 export const Dashboard: React.FC = () => {
   const { user, isAuthenticated, isLoading, getAccessTokenSilently } = useAuth0();
 
   const [aiInsights, setAiInsights] = useState<AiInsight[]>([]);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
-  const [statCards, setStatCards] = useState<StatCard[]>(DEFAULT_STATS_CARDS);
+  const [statCards, setStatCards] = useState<StatCard[]>(DEFAULT_STATS);
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!isAuthenticated || !user) return;
 
+useEffect(() => {
+  if (!isAuthenticated || !user) return;
+
+  async function load() {
+    try {
       setLoadingData(true);
       setLoadError(null);
 
-      try {
-        const token = await getAccessTokenSilently();
+      const username = (user as any).nickname;
+      if (!username) {
+        setLoadError("No GitHub username found in profile.");
+        setAiInsights([]);
+        setRecentReviews([]);
+        setStatCards(DEFAULT_STATS);
+        setLoadingData(false);
+        return;
+      }
 
-        // 1️⃣ Get PRs for the logged-in user from your Flask backend
-        const prsRes = await fetch("/api/github/user/prs", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+      // 1) Fetch user's PRs from backend by username
+      const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
 
-        if (!prsRes.ok) {
-          const text = await prsRes.text();
-          throw new Error(`Failed to fetch PRs: ${prsRes.status} ${text}`);
-        }
+      if (!prsRes.ok) {
+        const text = await prsRes.text();
+        throw new Error(`Failed to fetch PRs: ${prsRes.status} ${text}`);
+      }
 
-        const prsJson = (await prsRes.json()) as GithubSearchResponse;
-        const prItems: GithubSearchIssueItem[] = prsJson.items ?? [];
+      const prsJson = (await prsRes.json()) as GithubSearchResponse;
+      const prItems: GithubPR[] = prsJson.items ?? [];
+      const topPrs = prItems.slice(0, 4);
 
-        // Limit how many PRs we analyze (to avoid spamming AI-service)
-        const topPrs = prItems.slice(0, 4);
+      const insights: AiInsight[] = [];
+      const reviews: RecentReview[] = [];
 
-        // 2️⃣ Call AI-service for each PR (title-based for now)
-        const aiResults: AiInsight[] = [];
-        const reviews: RecentReview[] = [];
+      // 2) Call AI-service for each PR (same as before)
+      for (const pr of topPrs) {
+        try {
+          const aiRes = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "pr",
+              content: pr.title,
+            }),
+          });
 
-        for (const pr of topPrs) {
-          try {
-            const analyzeRes = await fetch("/api/analyze", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                type: "pr",
-                content: pr.title,
-              }),
-            });
-
-            if (!analyzeRes.ok) {
-              // Skip but keep going for others
-              console.warn("AI analyze failed for PR", pr.number, analyzeRes.status);
-              continue;
-            }
-
-            const aiJson = (await analyzeRes.json()) as AiAnalyzeResponse;
-
-            if (!aiJson.success || !aiJson.data) {
-              console.warn("AI analyze returned unsuccessful response for PR", pr.number);
-              continue;
-            }
-
-            const analysis = aiJson.data;
-            const insightType = sentimentToInsightType(analysis.sentiment);
-            const score = scoreFromAnalysis(analysis);
-
-            aiResults.push({
-              prNumber: pr.number,
-              title: analysis.summary || pr.title,
-              description:
-                analysis.suggestions?.[0] ??
-                "AI has feedback for this pull request.",
-              file: pr.html_url, // We don't have exact file; show PR link
-              type: insightType,
-              confidence: Math.round((analysis.confidence || 0.5) * 100),
-            });
-
-            reviews.push({
-              pr: `#${pr.number}`,
-              title: pr.title,
-              author: pr.user.login,
-              score,
-              status: statusFromScore(score),
-            });
-          } catch (err) {
-            console.error("Error analyzing PR", pr.number, err);
+          if (!aiRes.ok) {
+            console.warn("AI-service failed for PR", pr.number, aiRes.status);
+            continue;
           }
+
+          const aiJson = (await aiRes.json()) as AiAnalyzeResponse;
+          if (!aiJson.success || !aiJson.data) {
+            console.warn("AI-service returned unsuccessful for PR", pr.number);
+            continue;
+          }
+
+          const analysis = aiJson.data;
+          const type = sentimentToInsightType(analysis.sentiment);
+          const score = scoreFromAnalysis(analysis);
+
+          insights.push({
+            prNumber: pr.number,
+            title: analysis.summary || pr.title,
+            description:
+              analysis.suggestions?.[0] ??
+              "AI has feedback for this pull request.",
+            file: pr.html_url,
+            type,
+            confidence: Math.round((analysis.confidence ?? 0.5) * 100),
+          });
+
+          reviews.push({
+            pr: `#${pr.number}`,
+            title: pr.title,
+            author: pr.user.login,
+            score,
+            status: statusFromScore(score),
+          });
+        } catch (err) {
+          console.error("Error analyzing PR", pr.number, err);
         }
+      }
 
-        // 3️⃣ Compute stats from all PRs / reviews
-        const reviewsThisWeek = prItems.filter((pr) =>
-          isWithinLastNDays(pr.created_at, 7)
-        ).length;
+      // 3) Same stats logic
+      const reviewsThisWeek = prItems.filter((pr) =>
+        isWithinLastNDays(pr.created_at, 7)
+      ).length;
 
-        const avgReviewScore =
-          reviews.length > 0
-            ? Math.round(
-                reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length
-              )
-            : 0;
+      const avgReviewScore =
+        reviews.length > 0
+          ? Math.round(
+              reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length
+            )
+          : 0;
 
-        const commentsMade = prItems.reduce(
-          (sum, pr) => sum + (pr.comments || 0),
-          0
-        );
+      const commentsMade = prItems.reduce(
+        (sum, pr) => sum + (pr.comments || 0),
+        0
+      );
 
-        // For now, treat codeQuality as avgReviewScore (can refine later)
-        const codeQuality = avgReviewScore;
+      const codeQuality = avgReviewScore;
 
-        const statsSummary: StatsSummary = {
-          reviewsThisWeek,
-          avgReviewScore,
-          commentsMade,
-          codeQuality,
-        };
-
-        const newStatCards: StatCard[] = [
+      const newStatCards: StatCard[] = [
           {
             label: "Reviews This Week",
-            value: statsSummary.reviewsThisWeek.toString(),
-            trend: statsSummary.reviewsThisWeek > 0 ? "+12%" : "+0%",
+            value: reviewsThisWeek.toString(),
+            trend: reviewsThisWeek > 0 ? "+12%" : "+0%",
             icon: GitPullRequest,
             color: "green",
           },
           {
             label: "Avg Review Score",
-            value: statsSummary.avgReviewScore.toString(),
-            trend: statsSummary.avgReviewScore > 0 ? "+5%" : "+0%",
+            value: avgReviewScore.toString(),
+            trend: avgReviewScore > 0 ? "+5%" : "+0%",
             icon: TrendingUp,
             color: "green",
           },
           {
             label: "Comments Made",
-            value: statsSummary.commentsMade.toString(),
-            trend: statsSummary.commentsMade > 0 ? "+8%" : "+0%",
+            value: commentsMade.toString(),
+            trend: commentsMade > 0 ? "+8%" : "+0%",
             icon: MessageSquare,
             color: "green",
           },
           {
             label: "Code Quality",
-            value: `${statsSummary.codeQuality}%`,
-            trend: statsSummary.codeQuality > 0 ? "+3%" : "+0%",
+            value: `${codeQuality}%`,
+            trend: codeQuality > 0 ? "+3%" : "+0%",
             icon: Code2,
             color: "green",
           },
         ];
 
-        setAiInsights(aiResults);
-        setRecentReviews(reviews);
-        setStatCards(newStatCards);
-      } catch (err) {
-        console.error(err);
-        setLoadError(
-          err instanceof Error ? err.message : "Failed to load dashboard data"
-        );
-        setAiInsights([]);
-        setRecentReviews([]);
-        setStatCards(DEFAULT_STATS_CARDS);
-      } finally {
-        setLoadingData(false);
-      }
-    };
+              setAiInsights(insights);
+              setRecentReviews(reviews);
+              setStatCards(newStatCards);
+            } catch (err: any) {
+              console.error(err);
+              setLoadError(
+                err instanceof Error ? err.message : "Failed to load dashboard data"
+              );
+              setAiInsights([]);
+              setRecentReviews([]);
+              setStatCards(DEFAULT_STATS);
+            } finally {
+              setLoadingData(false);
+            }
+          }
 
-    if (!isLoading && isAuthenticated) {
-      void load();
-    }
-  }, [isAuthenticated, isLoading, user, getAccessTokenSilently]);
+          void load();
+        }, [isAuthenticated, user]);
 
-  // ---------- Render ----------
+
+  // ==================================================
+  // LOADING / AUTH STATES
+  // ==================================================
+
 
   if (isLoading) {
     return (
@@ -390,6 +455,10 @@ export const Dashboard: React.FC = () => {
       </Box>
     );
   }
+
+  // ==================================================
+  // MAIN UI
+  // ==================================================
 
   return (
     <Box style={{ minHeight: "100vh", backgroundColor: "#0d1117", padding: 32 }}>
@@ -459,9 +528,9 @@ export const Dashboard: React.FC = () => {
                   size={60}
                   variant="transparent"
                   radius="xl"
-                  color="#16a34a"
+                  color="green"
                 >
-                  <IconWrapper icon={Sparkles} size={24} />
+                  <Sparkles size={24} />
                 </ThemeIcon>
                 <Title order={3} c="white">
                   AI Insights
@@ -474,13 +543,14 @@ export const Dashboard: React.FC = () => {
                 </Group>
               ) : aiInsights.length === 0 ? (
                 <Text c="gray.5" size="sm">
-                  No AI insights yet. Open a PR and we'll start analyzing it for you.
+                  No AI insights yet. Once you open PRs, we’ll start analyzing them.
                 </Text>
               ) : (
                 <Stack gap="sm">
                   {aiInsights.map((insight, index) => {
                     const Icon = insightTypeToIcon(insight.type);
                     const color = insightTypeToColor(insight.type);
+
                     return (
                       <Card
                         key={`${insight.prNumber}-${index}`}
@@ -491,12 +561,6 @@ export const Dashboard: React.FC = () => {
                           backgroundColor: "#0d1117",
                           borderColor: "#30363d",
                         }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.borderColor = "#3e4249")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.borderColor = "#31373e")
-                        }
                       >
                         <Group align="flex-start" gap="sm">
                           <ThemeIcon
@@ -593,11 +657,7 @@ export const Dashboard: React.FC = () => {
                           </Text>
                         </Group>
                         <Group gap={4}>
-                          <Progress
-                            value={review.score}
-                            size={6}
-                            style={{ width: 64 }}
-                          />
+                          <Progress value={review.score} size={6} style={{ width: 64 }} />
                           <Text c="gray.5" size="sm">
                             {review.score}
                           </Text>
@@ -609,7 +669,6 @@ export const Dashboard: React.FC = () => {
               )}
             </Card>
 
-            {/* Weekly Goal */}
             <Card
               p="lg"
               radius="md"
@@ -619,7 +678,7 @@ export const Dashboard: React.FC = () => {
               <Text c="white" fw={500} mb={4}>
                 Weekly Goal
               </Text>
-              <Stack gap={4}>
+              <Stack gap="4px">
                 <Group align="center" gap="xs">
                   <Text c="gray.5" size="sm">
                     {`${statCards[0]?.value ?? "0"} / 30 reviews`}
@@ -659,3 +718,4 @@ export const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+

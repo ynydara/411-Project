@@ -5,6 +5,7 @@ from flask_cors import CORS
 import traceback
 # import jose import jwt
 import requests
+import os
 
 
 # run this only once pls
@@ -590,55 +591,73 @@ def settings():
     return "Settings"
 
 
-# ai_url = "http://ai-service:8000"
+
 AI_SERVICE_URL = "http://ai-service:8000/api"
 GITHUB_API = "https://api.github.com"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-def github_get(endpoint: str, token: str):
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json"
-    }
-    r = requests.get(f"{GITHUB_API}{endpoint}", headers=headers)
+def github_get(endpoint: str, token: str | None = None):
+    # Default to app-level PAT
+    if token is None:
+        token = GITHUB_TOKEN
+
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        r = requests.get(f"{GITHUB_API}{endpoint}", headers=headers, timeout=30)
+    except Exception as e:
+        # Network or request error → 500 from our API
+        print("GitHub request failed:", e)
+        return None, {"error": "request_failed", "detail": str(e)}
+
+    try:
+        data = r.json()
+    except ValueError:
+        # Not JSON (e.g. HTML error page)
+        print("GitHub returned non-JSON:", r.status_code, r.text[:200])
+        return None, {
+            "error": "invalid_json",
+            "status": r.status_code,
+            "text": r.text,
+        }
+
     if r.status_code != 200:
-        return None, r.json()
-    return r.json(), None
+        print("GitHub API error:", r.status_code, data)
+        return None, {"status": r.status_code, "body": data}
 
-@app.route("/api/github/user/prs", methods=["GET"])
+    return data, None
+
+
+@app.route("/api/github/user/prs")
 def get_user_prs():
-    token = request.headers.get("Authorization")
-    if not token:
-        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+    """
+    Get PRs for a given GitHub username.
+    Uses app-level PAT (GITHUB_TOKEN) and a query param ?username=
+    """
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
 
-    token = token.replace("Bearer ", "")
-
-    # Step 1 — who is the user?
-    user, err = github_get("/user", token)
-    if err:
-        return jsonify({"error": "Failed to identify user", "details": err}), 400
-
-    username = user["login"]
-
-    # Step 2 — search PRs authored by the user
     prs, err = github_get(
         f"/search/issues?q=type:pr+author:{username}+is:open",
-        token
+        token=None,  # force use of PAT
     )
 
     if err:
-        return jsonify({"error": "Failed to fetch PRs", "details": err}), 400
+        # Bubble up the GitHub error so you can see it in the browser
+        return jsonify({"error": "Failed to fetch PRs", "details": err}), 500
 
     return jsonify(prs)
-
-#For A Specific Repository
-@app.route("/api/github/repos/<owner>/<repo>/prs", methods=["GET"])
+# ---------------------- REPO PRs -------------------------
+@app.route("/api/github/repos/<owner>/<repo>/prs")
 def get_repo_prs(owner, repo):
-    token = request.headers.get("Authorization")
-    if not token:
+    auth = request.headers.get("Authorization")
+    if not auth:
         return jsonify({"error": "Missing GitHub OAuth token"}), 401
 
-    token = token.replace("Bearer ", "")
-
+    token = auth.replace("Bearer ", "")
     prs, err = github_get(f"/repos/{owner}/{repo}/pulls", token)
 
     if err:
@@ -646,58 +665,50 @@ def get_repo_prs(owner, repo):
 
     return jsonify(prs)
 
-#Fetch Pr Details
-@app.route("/api/github/pr/<owner>/<repo>/<int:number>", methods=["GET"])
+
+# ---------------------- PR DETAILS ------------------------
+@app.route("/api/github/pr/<owner>/<repo>/<int:number>")
 def get_pr_details(owner, repo, number):
-    token = request.headers.get("Authorization")
-    if not token:
+    auth = request.headers.get("Authorization")
+    if not auth:
         return jsonify({"error": "Missing GitHub OAuth token"}), 401
 
-    token = token.replace("Bearer ", "")
+    token = auth.replace("Bearer ", "")
 
-    # PR metadata
     pr, err = github_get(f"/repos/{owner}/{repo}/pulls/{number}", token)
     if err:
         return jsonify({"error": "Failed to fetch PR", "details": err}), 400
 
-    # PR files
     files, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{number}/files", token)
     if err2:
         return jsonify({"error": "Failed to fetch PR files", "details": err2}), 400
 
-    return jsonify({
-        "pr": pr,
-        "files": files
-    })
+    return jsonify({"pr": pr, "files": files})
 
-#Send to AI
+
+
 @app.route("/api/analyze", methods=["POST"])
-def analyze():
-    """Proxy for AI analysis"""
+def analyze_proxy():
     data = request.json or {}
-    content = data.get("content")
-    analysis_type = data.get("type", "text")
 
-    if not content:
+    if "content" not in data:
         return jsonify({"error": "Missing content"}), 400
 
-    payload = {
-        "type": analysis_type,
-        "content": content,
-        "file": data.get("file", "unknown")
-    }
-
     try:
-        resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
-        resp.raise_for_status()
+        resp = requests.post(
+            f"{AI_SERVICE_URL}/analyze",
+            json=data,
+            timeout=60
+        )
         return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/health")
 def health():
     return {"status": "ok"}
+
 
 
 
