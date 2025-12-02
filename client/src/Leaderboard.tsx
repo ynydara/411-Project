@@ -246,7 +246,7 @@ export function Leaderboard() {
           withBorder
           style={{ backgroundColor: "#161b22", borderColor: "#30363d" }}
         >
-          <Tabs defaultValue="overall" variant="pills" radius="x1" style={{ backgroundColor: "#161b22", borderColor: "#30363d" }} >
+          <Tabs defaultValue="overall" variant="pills" radius="md" color="#30363d" c="gray.5">
             <Tabs.List px="md" pt="md">
               <Tabs.Tab value="overall">Overall</Tabs.Tab>
               <Tabs.Tab value="weekly">This Week</Tabs.Tab>

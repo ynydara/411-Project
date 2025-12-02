@@ -1,5 +1,5 @@
-import { LuCodeXml, LuTrophy, LuChartColumn, LuPanelsTopLeft } from "react-icons/lu";
-import { Button, Group, Text, Box, ThemeIcon, Container, Menu } from "@mantine/core";
+import {LuCodeXml, LuTrophy, LuChartColumn, LuPanelsTopLeft, LuStar} from "react-icons/lu";
+import {Button, Group, Text, Box, ThemeIcon, Container, Menu, Flex, Space} from "@mantine/core";
 import { useNavigate, useLocation } from "react-router-dom";
 import {useAuth0} from "@auth0/auth0-react";
 
@@ -26,21 +26,29 @@ export function Navbar() {
         height: 64,
       }}
     >
-      <Container
-        size="xl"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          height: "100%",
-        }}
+      <Flex
+        justify={'space-between'}
+        align={'center'}
+        h={'100%'}
+        w={'100%'}
       >
         {/* Logo */}
-        <Group gap="xs">
-          <ThemeIcon size={36} variant="transparent" radius="xl" color="green">
-            <IconWrapper icon={LuCodeXml} size={20} />
-          </ThemeIcon>
-          <Text color="white" fw={700}>
+        <Group gap="xs" px={10}>
+            <Box pos="relative">
+            <ThemeIcon size={45} variant="transparent" radius="xl" color="green">
+              <IconWrapper icon={LuCodeXml} size={40} />
+            </ThemeIcon>
+            <ThemeIcon
+              size={17}
+              radius="xl"
+              variant="transparent"
+              color="yellow"
+              style={{ position: "absolute", top: -1, right: -4 }}
+            >
+              <IconWrapper icon={LuStar} size={30} />
+            </ThemeIcon>
+          </Box>
+          <Text color="white" fw={700} size="lg">
             CodeReview AI
           </Text>
         </Group>
@@ -108,12 +116,13 @@ export function Navbar() {
                     }}
                   >
                     <IconWrapper icon={item.icon} size={16} />
+                    <Space w={10} />
                     {item.label}
                   </Button>
                 );
           })}
         </Group>
-      </Container>
+      </Flex>
     </Box>
   );
 }
