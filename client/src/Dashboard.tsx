@@ -254,6 +254,25 @@ const DEFAULT_STATS: StatCard[] = [
     color: "green",
   },
 ];
+// src/api/score.ts
+export async function updateUserScores(username: string) {
+  if (!username) throw new Error("Username is required");
+
+  const res = await fetch("/api/score/update", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ username }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to update scores: ${res.status} ${text}`);
+  }
+
+  return await res.json();
+}
 
 const IconWrapper: React.FC<{ icon: LucideIcon; size?: number }> = ({
   icon: Icon,
@@ -283,6 +302,9 @@ useEffect(() => {
       setLoadingData(true);
       setLoadError(null);
 
+
+
+
       const username = (user as any).nickname;
       if (!username) {
         setLoadError("No GitHub username found in profile.");
@@ -292,6 +314,10 @@ useEffect(() => {
         setLoadingData(false);
         return;
       }
+
+      const scoreRes = await updateUserScores(username);
+
+      console.log("Updated scores:", scoreRes);
 
       // 1) Fetch user's PRs from backend by username
       const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
@@ -362,10 +388,11 @@ setCommentList(commentItems);
 
     insights.push({
       prNumber: comment.pr_number,
-      title: `Comment by ${comment.user.login}`,
-      description: analysis.suggestions?.[0] ?? comment.body,
+      title: `Comment by ${comment.user.login}. \n The comment was:  ${comment.body}`,
+      description: analysis.suggestions?.[0] ?? "The ai didnt provide an analysis for this comment",
       // file: `PR #${comment.pr_number}`, // or pr.html_url if you have a mapping
         file: `COMMENT on PR #${comment.pr_number}`,
+
       type,
       confidence: Math.round((analysis.confidence ?? 0.5) * 100),
     });
@@ -426,6 +453,8 @@ setCommentList(commentItems);
           console.error("Error analyzing PR", pr.number, err);
         }
       }
+
+
 
       // 3) Same stats logic
       const reviewsThisWeek = prItems.filter((pr) =>
@@ -677,7 +706,7 @@ setCommentList(commentItems);
                 </Group>
               ) : aiInsights.length === 0 ? (
                 <Text c="gray.5" size="sm">
-                  No AI insights yet. Once you open PRs, we’ll start analyzing them.
+                  No AI insights yet. Once you open PRs or make comments, we’ll start analyzing them.
                 </Text>
               ) : (
                 <Stack gap="sm">
@@ -707,11 +736,11 @@ setCommentList(commentItems);
                           </ThemeIcon>
                           <Stack gap={2} style={{ flex: 1 }}>
                             <Group align="center" mb={2}>
-                              <Text c="white" fw={500}>
+                              <Text c="white" fw={500}  style={{ whiteSpace: "pre-line" }}>
                                 {insight.title}
                               </Text>
                               <Badge variant="outline" color="gray">
-                                {insight.confidence}% confident
+                                {"confidence: " + insight.confidence}% confident
                               </Badge>
                             </Group>
                             <Text size="sm" c="gray.5">
@@ -748,7 +777,7 @@ setCommentList(commentItems);
                 </Group>
               ) : recentReviews.length === 0 ? (
                 <Text c="gray.5" size="sm">
-                  No recent reviews found. Once you start reviewing PRs, they’ll show
+                  No recent reviews found. Once you start reviewing PRs or make comments, they’ll show
                   up here.
                 </Text>
               ) : (

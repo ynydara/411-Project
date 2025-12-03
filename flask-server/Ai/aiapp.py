@@ -6,9 +6,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from huggingface_hub import InferenceClient
 
-# ---------------------- CONFIG ------------------------
 HF_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
-MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"  # exact HF repo id
+MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 if not HF_TOKEN:
     raise ValueError("Missing Hugging Face API key in environment variables")
@@ -17,7 +16,6 @@ if not HF_TOKEN:
 client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
 print(f"🔹 Using HF Inference API model: {MODEL_ID}")
 
-# ---------------------- FASTAPI INIT -------------------
 app = FastAPI(title="AI-Service", version="3.0")
 
 
@@ -31,12 +29,10 @@ class AnalysisRequest(BaseModel):
 def root():
     return {"status": "ok", "service": "ai-service"}
 
-
-# ---------------------- ANALYZE ENDPOINT ----------------
 @app.post("/api/analyze")
 def analyze(payload: AnalysisRequest):
     try:
-        # Chat-style call
+
         system_msg = (
             "You are an AI that analyzes GitHub pull requests, comments, or code "
             "and returns ONLY JSON in a fixed schema. Do not include markdown or text "
@@ -69,12 +65,10 @@ def analyze(payload: AnalysisRequest):
             "insight": dashboard_obj,
         }
     except Exception as e:
-        print("❌ Error in /api/analyze:", repr(e))
+        print("Error in /api/analyze:", repr(e))
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"HF error: {e}")
 
-
-# ---------------------- HELPERS -------------------------
 
 def build_prompt(data_type: str, content: str, file: str = "unknown") -> str:
     return f"""
@@ -121,21 +115,17 @@ def parse_ai_response(output: str) -> dict:
     try:
         parsed = json.loads(match.group())
 
-        # Raw values from model
         raw_sentiment = parsed.get("sentiment", "neutral")
         raw_category = parsed.get("category", "other")
         raw_construct = parsed.get("constructiveness_score")
         raw_confidence = parsed.get("confidence", 0.5)
 
-        # Clamp sentiment to allowed values
         if raw_sentiment not in {"positive", "neutral", "negative"}:
             raw_sentiment = "neutral"
 
-        # Clamp category
         if raw_category not in {"feature", "bugfix", "refactor", "documentation", "other"}:
             raw_category = "other"
 
-        # Clamp numeric fields into [0, 1]
         try:
             constructiveness = float(raw_construct)
         except (TypeError, ValueError):

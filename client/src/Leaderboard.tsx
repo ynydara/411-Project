@@ -24,7 +24,9 @@ const [activeTab, setActiveTab] = useState<string>("overall");
  const { user, isAuthenticated } = useAuth0();
 
 const fetchLeaderboard = async (type: string) => {
-    setMembers(null);
+  //  setMembers(null);
+
+
     try {
       const res = await fetch(`/api/users?type=${type}`);
       const data = await res.json();
@@ -187,9 +189,17 @@ useEffect(() => {
             </ThemeIcon>
         );
     };
+
+
     if (!isAuthenticated) return <Text c="white">Please log in</Text>;
   if (!members) return <Text c="white">Loading...</Text>;
+
+  const username = (user as any).nickname;
+    if(!members){
+      return <Text c="white">Loading...</Text>;
+    }
     if (members != null && isAuthenticated) {
+
         return (
             <Box bg="#0d1117" pt={32} pb={64} style={{minHeight: "100vh"}}>
                 <Container size="lg">
@@ -284,8 +294,14 @@ useEffect(() => {
                         withBorder
                         style={{backgroundColor: "#161b22", borderColor: "#30363d"}}
                     >
-                        <Tabs defaultValue="overall" variant="pills" radius="x1"
-                              style={{backgroundColor: "#161b22", borderColor: "#30363d"}}>
+                       <Tabs
+                              value={activeTab}
+                              onChange={(value: string | null) => setActiveTab(value || "overall")}
+                              variant="pills"
+                              radius="xl"
+                              style={{ backgroundColor: "#161b22", borderColor: "#30363d" }}
+>
+
                             <Tabs.List px="md" pt="md">
 
                                 <Tabs.Tab value="overall">Overall</Tabs.Tab>
@@ -313,11 +329,13 @@ useEffect(() => {
 
                                     <Table.Tbody>
 
-                                        {members.map((user) => (
+                                        {members.map((member) => (
                                             <Table.Tr
-                                                key={user.name}
+                                                key={member.id}
                                                 style={{
-                                                    backgroundColor: user.name ? "rgba(34,197,94,0.08)" : "transparent",
+                                                    backgroundColor:
+                                                        isAuthenticated && member.name.toLowerCase() == username
+                                                       ? "rgba(34,197,94,0.08)" : "transparent",
                                                     cursor: "pointer",
                                                 }}
                                             >
@@ -328,12 +346,13 @@ useEffect(() => {
                                                 <Table.Td>
                                                     <Group>
                                                         <Avatar size="sm" radius="xl">
-                                                            {user.name.slice(0, 2).toUpperCase()}
+                                                            {member.name.slice(0, 2).toUpperCase()}
                                                         </Avatar>
                                                         <div>
                                                             <Text c="white">
-                                                                {user.name}{" "}
-                                                                {isAuthenticated && (
+
+                                                                {member.name}{" "}
+                                                                {isAuthenticated && member.name === username &&(
                                                                     <Badge color="green" ml={4}
                                                                            variant="light">You</Badge>
                                                                 )}
@@ -346,7 +365,7 @@ useEffect(() => {
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    <Text c="green.5">{user.score.toLocaleString()}</Text>
+                                                    <Text c="green.5">{member.score.toLocaleString()}</Text>
                                                 </Table.Td>
 
                                                 {/*<Table.Td>*/}
@@ -380,16 +399,180 @@ useEffect(() => {
                             </Tabs.Panel>
 
                             {/* Placeholder panels */}
-                            <Tabs.Panel value="weekly" p="xl">
-                                <Text c="dimmed" ta="center">
-                                    Weekly leaderboard data
-                                </Text>
+                            <Tabs.Panel value="comment">
+                                <Table
+                                    highlightOnHover
+                                    verticalSpacing="md"
+                                    horizontalSpacing="lg"
+                                >
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            {["Rank", "User", "Score", "Reviews", "Change"].map((h) => (
+                                                <Table.Th key={h}>
+                                                    <Text c="gray.5">{h}</Text>
+                                                </Table.Th>
+                                            ))}
+                                        </Table.Tr>
+                                    </Table.Thead>
+
+
+                                    <Table.Tbody>
+
+                                        {members.map((member) => (
+                                            <Table.Tr
+                                                key={member.id}
+                                                style={{
+                                                    backgroundColor:
+                                                        isAuthenticated && member.name.toLowerCase() == username
+                                                       ? "rgba(34,197,94,0.08)" : "transparent",
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                <Table.Td>
+                                                    {/*{getRankIcon(user.rank)}*/}
+                                                </Table.Td>
+
+                                                <Table.Td>
+                                                    <Group>
+                                                        <Avatar size="sm" radius="xl">
+                                                            {member.name.slice(0, 2).toUpperCase()}
+                                                        </Avatar>
+                                                        <div>
+                                                            <Text c="white">
+
+                                                                {member.name}{" "}
+                                                                {isAuthenticated && member.name === username &&(
+                                                                    <Badge color="green" ml={4}
+                                                                           variant="light">You</Badge>
+                                                                )}
+                                                            </Text>
+                                                            <Text c="dimmed" fz="xs">
+                                                                {/*Level {user.level}*/}
+                                                            </Text>
+                                                        </div>
+                                                    </Group>
+                                                </Table.Td>
+
+                                                <Table.Td>
+                                                    <Text c="green.5">{member.score.toLocaleString()}</Text>
+                                                </Table.Td>
+
+                                                {/*<Table.Td>*/}
+                                                {/*    /!*<Text c="gray.4">{user.reviews}</Text>*!/*/}
+                                                {/*</Table.Td>*/}
+
+                                                {/*<Table.Td>*/}
+                                                {/*    /!*<Text c="gray.4">{user.accuracy}%</Text>*!/*/}
+                                                {/*</Table.Td>*/}
+
+                                                <Table.Td>
+                                                    <Badge color="orange" variant="light">
+                                                        {/*🔥 {user.streak}*/}
+                                                    </Badge>
+                                                </Table.Td>
+
+                                                <Table.Td>
+                                                    {/*<Group gap={4}>*/}
+                                                    {/*    /!*{getTrendIcon(user.change)}*!/*/}
+                                                    {/*    /!*{user.change !== 0 && (*!/*/}
+                                                    {/*    /!*    <Text c={user.change > 0 ? "green" : "red"}>*!/*/}
+                                                    {/*    /!*        {Math.abs(user.change)}*!/*/}
+                                                    {/*    /!*    </Text>*!/*/}
+                                                    {/*    )}*/}
+                                                    {/*</Group>*/}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
                             </Tabs.Panel>
 
-                            <Tabs.Panel value="monthly" p="xl">
-                                <Text c="dimmed" ta="center">
-                                    Monthly leaderboard data
-                                </Text>
+                            <Tabs.Panel value="code">
+                                <Table
+                                    highlightOnHover
+                                    verticalSpacing="md"
+                                    horizontalSpacing="lg"
+                                >
+                                    <Table.Thead>
+                                        <Table.Tr>
+                                            {["Rank", "User", "Score", "Reviews", "Change"].map((h) => (
+                                                <Table.Th key={h}>
+                                                    <Text c="gray.5">{h}</Text>
+                                                </Table.Th>
+                                            ))}
+                                        </Table.Tr>
+                                    </Table.Thead>
+
+
+                                    <Table.Tbody>
+
+                                        {members.map((member) => (
+                                            <Table.Tr
+                                                key={member.id}
+                                                style={{
+                                                    backgroundColor:
+                                                        isAuthenticated && member.name.toLowerCase() == username
+                                                       ? "rgba(34,197,94,0.08)" : "transparent",
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                <Table.Td>
+                                                    {/*{getRankIcon(user.rank)}*/}
+                                                </Table.Td>
+
+                                                <Table.Td>
+                                                    <Group>
+                                                        <Avatar size="sm" radius="xl">
+                                                            {member.name.slice(0, 2).toUpperCase()}
+                                                        </Avatar>
+                                                        <div>
+                                                            <Text c="white">
+
+                                                                {member.name}{" "}
+                                                                {isAuthenticated && member.name === username &&(
+                                                                    <Badge color="green" ml={4}
+                                                                           variant="light">You</Badge>
+                                                                )}
+                                                            </Text>
+                                                            <Text c="dimmed" fz="xs">
+                                                                {/*Level {user.level}*/}
+                                                            </Text>
+                                                        </div>
+                                                    </Group>
+                                                </Table.Td>
+
+                                                <Table.Td>
+                                                    <Text c="green.5">{member.score.toLocaleString()}</Text>
+                                                </Table.Td>
+
+                                                {/*<Table.Td>*/}
+                                                {/*    /!*<Text c="gray.4">{user.reviews}</Text>*!/*/}
+                                                {/*</Table.Td>*/}
+
+                                                {/*<Table.Td>*/}
+                                                {/*    /!*<Text c="gray.4">{user.accuracy}%</Text>*!/*/}
+                                                {/*</Table.Td>*/}
+
+                                                <Table.Td>
+                                                    <Badge color="orange" variant="light">
+                                                        {/*🔥 {user.streak}*/}
+                                                    </Badge>
+                                                </Table.Td>
+
+                                                <Table.Td>
+                                                    {/*<Group gap={4}>*/}
+                                                    {/*    /!*{getTrendIcon(user.change)}*!/*/}
+                                                    {/*    /!*{user.change !== 0 && (*!/*/}
+                                                    {/*    /!*    <Text c={user.change > 0 ? "green" : "red"}>*!/*/}
+                                                    {/*    /!*        {Math.abs(user.change)}*!/*/}
+                                                    {/*    /!*    </Text>*!/*/}
+                                                    {/*    )}*/}
+                                                    {/*</Group>*/}
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        ))}
+                                    </Table.Tbody>
+                                </Table>
                             </Tabs.Panel>
                         </Tabs>
                     </Card>

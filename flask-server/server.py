@@ -3,7 +3,6 @@ import psycopg2
 from flasgger import Swagger
 from flask_cors import CORS
 import traceback
-# import jose import jwt
 import requests
 import os
 
@@ -37,8 +36,6 @@ app = Flask(__name__)
 swagger = Swagger(app)
 CORS(app, origins=["http://localhost:3000"])
 
-
-# empty route/login screen
 @app.route('/api/')
 def default():
     return "default"
@@ -539,8 +536,6 @@ def give_user_achievement(user_id):
 
     return jsonify({"message": "Achievement granted"}), 201
 
-
-
 @app.route('/api/users/by-nickname/<nickname>/achievements', methods=['GET'])
 def achievements_by_nickname(nickname):
     conn = getdbconnection()
@@ -562,16 +557,9 @@ def achievements_by_nickname(nickname):
     finally:
         conn.close()
 
-
-# @app.route('/api/achievements')
-# def profile():
-#     return "Acheivements"
-
 @app.route('/api/settings')
 def settings():
     return "Settings"
-
-
 
 AI_SERVICE_URL = "http://ai-service:8000/api"
 GITHUB_API = "https://api.github.com"
@@ -609,7 +597,6 @@ def github_get(endpoint: str, token: str | None = None):
         return None, {"status": r.status_code, "body": data}
 
     return data, None
-
 
 @app.route("/api/github/user/prs")
 def get_user_prs():
@@ -713,7 +700,6 @@ def get_repo_prs(owner, repo):
 
     return jsonify(prs)
 
-
 # ---------------------- PR DETAILS ------------------------
 @app.route("/api/github/pr/<owner>/<repo>/<int:number>")
 def get_pr_details(owner, repo, number):
@@ -733,18 +719,6 @@ def get_pr_details(owner, repo, number):
 
     return jsonify({"pr": pr, "files": files})
 
-def compute_score(sentiment: str, constructiveness: float) -> float:
-    """Compute score based on rubric."""
-    sentiment_value = {
-        "positive": 1.0,
-        "neutral": 0.5,
-        "negative": 0.0
-    }.get(sentiment.lower(), 0.5)
-
-    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
-
-    intScore = int(round(score,2)) #database only accepts ints, no decimals
-    return intScore
 
 @app.route("/api/analyze", methods=["POST"])
 def analyze_proxy():
@@ -763,13 +737,146 @@ def analyze_proxy():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def compute_score(sentiment: str, constructiveness: float) -> float:
+    """Compute score based on rubric."""
+    if sentiment is None:
+        sentiment = "neutral"
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0
+    }.get(sentiment.lower(), 0.5)
+
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+
+    intScore = int(round(score,2)) #database only accepts ints, no decimals
+    return intScore
+
+
+@app.route("/api/score/update", methods=["POST"])
+def update_scores_from_analysis():
+    data = request.json
+    username = data.get("username")
+
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+    # Get PRs
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token=None
+    )
+
+    if err:
+        return jsonify({"error": "Failed to fetch PRs", "details": err}), 500
+
+    total_code_score = 0
+    total_comment_score = 0
+
+ #fetch comments
+    for pr in prs["items"]:
+
+        repo_url = pr["repository_url"]
+        owner, repo = repo_url.split("/")[-2:]
+        pr_number = pr["number"]
+
+        issue_comments, _ = github_get(
+            f"/repos/{owner}/{repo}/issues/{pr_number}/comments",
+            token=None
+        )
+        review_comments, _ = github_get(
+            f"/repos/{owner}/{repo}/pulls/{pr_number}/comments",
+            token=None
+        )
+
+        all_comments = []
+        if issue_comments: all_comments.extend(issue_comments)
+        print("The issue comments are: ", issue_comments)
+
+        if review_comments: all_comments.extend(review_comments)
+        print("The review comments are: ", review_comments)
+
+        # Keep only comments made by the user
+        user_comments = [c for c in all_comments
+                         if c["user"]["login"] == username]
+
+        for c in user_comments:
+            text = c.get("body", "")
+
+            # Call AI microservice
+            resp = requests.post(
+                f"{AI_SERVICE_URL}/analyze",
+                json={"content": text},
+                timeout=30
+            )
+            analysis = resp.json()
+            sentiment = analysis.get("sentiment")
+            constructiveness = float(analysis.get("constructiveness", 0))
+
+            score = compute_score(sentiment, constructiveness)
+            total_comment_score += score
+
+        pr_text = pr.get("title", "") + "\n" + pr.get("body", "")
+
+        resp = requests.post(
+            f"{AI_SERVICE_URL}/analyze",
+            json={"content": pr_text},
+            timeout=30
+        )
+        analysis = resp.json()
+        sentiment = analysis.get("sentiment")
+        constructiveness = float(analysis.get("constructiveness", 0))
+        pr_score = compute_score(sentiment, constructiveness)
+        total_code_score += pr_score
+
+    # ------- 4. Update user in DB -------
+    conn = getdbconnection()
+    try:
+        with conn.cursor() as cur:
+
+            # 1. Get existing scores
+            cur.execute("""
+                        SELECT code_score, comment_score
+                        FROM users
+                        WHERE githubId = %s
+                        """, (username,))
+            row = cur.fetchone()
+
+            if not row:
+                return jsonify({"error": "User does not exist"}), 404
+
+            existing_code = row[0]
+            existing_comment = row[1]
+
+            # 2. Add (increment)
+            new_code_score = existing_code + total_code_score
+            new_comment_score = existing_comment + total_comment_score
+
+            # 3. Save updated totals
+            cur.execute("""
+                        UPDATE users
+                        SET code_score    = %s,
+                            comment_score = %s
+                        WHERE githubId = %s RETURNING id;
+                        """, (new_code_score, new_comment_score, username))
+
+            conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({
+        "message": "Scores updated",
+        "added_code_score": total_code_score,
+        "added_comment_score": total_comment_score,
+        "final_code_score": new_code_score,
+        "final_comment_score": new_comment_score
+    }), 200
+
+
 
 @app.route("/health")
 def health():
     return {"status": "ok"}
-
-
-
 
 if __name__ == '__main__':
     initdb()
