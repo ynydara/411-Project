@@ -83,15 +83,26 @@ interface GithubUser {
   avatar_url: string | null;
 }
 
+interface GithubPRComment {
+  id: number;
+  body: string;
+  user: GithubUser;
+  pr_number: number;
+  created_at: string;
+}
+
 interface GithubPR {
   id: number;
   number: number;
   title: string;
   created_at: string;
-  comments: number;
+  // comments: number;
   user: GithubUser;
   html_url: string;
+  commentData?: Array<{ id: number; body: string; user: GithubUser }>;
 }
+
+
 
 interface GithubSearchResponse {
   total_count?: number;
@@ -261,6 +272,7 @@ export const Dashboard: React.FC = () => {
   const [statCards, setStatCards] = useState<StatCard[]>(DEFAULT_STATS);
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [commentList, setCommentList] = useState<GithubPRComment[]>([]);
 
 
 useEffect(() => {
@@ -284,17 +296,86 @@ useEffect(() => {
       // 1) Fetch user's PRs from backend by username
       const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
 
+      const commentsRes = await fetch(`/api/github/user/prs/comments?username=${encodeURIComponent(username)}`);
+
+
+
       if (!prsRes.ok) {
         const text = await prsRes.text();
         throw new Error(`Failed to fetch PRs: ${prsRes.status} ${text}`);
+      }
+
+      if (!commentsRes.ok){
+          const text = await commentsRes.text();
+          throw new Error(`failed to fetch comments': ${commentsRes.status} ${text}`);
       }
 
       const prsJson = (await prsRes.json()) as GithubSearchResponse;
       const prItems: GithubPR[] = prsJson.items ?? [];
       const topPrs = prItems.slice(0, 4);
 
-      const insights: AiInsight[] = [];
+
+      const commentsJson = (await commentsRes.json()) as Array<{
+  comments: GithubPRComment[];
+  pr_number: number;
+}>;
+
+const commentItems: GithubPRComment[] = commentsJson.flatMap(pr =>
+  pr.comments.map(comment => ({
+    ...comment,
+    pr_number: pr.pr_number, // make sure pr_number is on the comment
+  }))
+);
+
+setCommentList(commentItems);
+
+      // const commentsJson = (await commentsRes.json()) as {items: GithubPRComment[]};
+      // const commentItems = commentsJson.items ?? [];
+      // setCommentList(commentItems);
+
+  const insights: AiInsight[] = [];
       const reviews: RecentReview[] = [];
+      for (const comment of commentItems) {
+  try {
+    const aiRes = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "comment",
+        content: comment.body,
+      }),
+    });
+
+    if (!aiRes.ok) {
+      console.warn("AI-service failed for comment", comment.id, aiRes.status);
+      continue;
+    }
+
+    const aiJson = (await aiRes.json()) as AiAnalyzeResponse;
+    if (!aiJson.success || !aiJson.data) {
+      console.warn("AI-service returned unsuccessful for comment", comment.id);
+      continue;
+    }
+
+    const analysis = aiJson.data;
+    const type = sentimentToInsightType(analysis.sentiment);
+
+    insights.push({
+      prNumber: comment.pr_number,
+      title: `Comment by ${comment.user.login}`,
+      description: analysis.suggestions?.[0] ?? comment.body,
+      // file: `PR #${comment.pr_number}`, // or pr.html_url if you have a mapping
+        file: `COMMENT on PR #${comment.pr_number}`,
+      type,
+      confidence: Math.round((analysis.confidence ?? 0.5) * 100),
+    });
+  } catch (err) {
+    console.error("Error analyzing comment", comment.id, err);
+  }
+}
+      //
+      // const insights: AiInsight[] = [];
+      // const reviews: RecentReview[] = [];
 
       // 2) Call AI-service for each PR (same as before)
       for (const pr of topPrs) {
@@ -358,10 +439,10 @@ useEffect(() => {
             )
           : 0;
 
-      const commentsMade = prItems.reduce(
-        (sum, pr) => sum + (pr.comments || 0),
-        0
-      );
+      // const commentsMade = prItems.reduce(
+      //   (sum, pr) => sum + (pr.comments || 0),
+      //   0
+      // );
 
       const codeQuality = avgReviewScore;
 
@@ -380,13 +461,13 @@ useEffect(() => {
             icon: TrendingUp,
             color: "green",
           },
-          {
-            label: "Comments Made",
-            value: commentsMade.toString(),
-            trend: commentsMade > 0 ? "+8%" : "+0%",
-            icon: MessageSquare,
-            color: "green",
-          },
+          // {
+          //   label: "Comments Made",
+          //   // value: commentsMade.toString(),
+          //   // trend: commentsMade > 0 ? "+8%" : "+0%",
+          //   icon: MessageSquare,
+          //   color: "green",
+          // },
           {
             label: "Code Quality",
             value: `${codeQuality}%`,
@@ -396,7 +477,24 @@ useEffect(() => {
           },
         ];
 
-              setAiInsights(insights);
+              // Sort PR insights first, then comment insights
+            insights.sort((a, b) => {
+              const typeOrder = { pr: 0, comment: 1 };
+
+            const aType = a.file.includes("COMMENT") ? "comment" : "pr";
+            const bType = b.file.includes("COMMENT") ? "comment" : "pr";
+            console.log("Comments JSON:", commentsJson);
+
+
+              // group by PR number first
+              if (a.prNumber !== b.prNumber) return a.prNumber - b.prNumber;
+
+              // PR insight first, then comment insights
+              return typeOrder[aType] - typeOrder[bType];
+            });
+
+            setAiInsights(insights);
+
               setRecentReviews(reviews);
               setStatCards(newStatCards);
             } catch (err: any) {
@@ -477,6 +575,42 @@ useEffect(() => {
             </Text>
           )}
         </Stack>
+{/*<Card*/}
+{/*  p="lg"*/}
+{/*  radius="md"*/}
+{/*  withBorder*/}
+{/*  style={{ backgroundColor: "#161b22", borderColor: "#30363d" }}*/}
+{/*>*/}
+{/*  /!*<Title order={3} c="white" mb="md">*!/*/}
+{/*  /!*  Your GitHub Comments*!/*/}
+{/*  /!*</Title>*!/*/}
+
+{/*  {commentList.length === 0 ? (*/}
+{/*    <Text c="gray.5" size="sm">No GitHub comments found.</Text>*/}
+{/*  ) : (*/}
+{/*    <Stack gap="sm">*/}
+{/*      {commentList.map((c) => (*/}
+{/*        <Card*/}
+{/*          key={c.id}*/}
+{/*          p="sm"*/}
+{/*          radius="md"*/}
+{/*          withBorder*/}
+{/*          style={{ backgroundColor: "#0d1117", borderColor: "#30363d" }}*/}
+{/*        >*/}
+{/*          <Text c="green" size="xs" component="code">PR #{c.pr_number}</Text>*/}
+
+{/*          <Text size="sm" c="white" mt={4}>*/}
+{/*            {c.body}*/}
+{/*          </Text>*/}
+
+{/*          <Text size="xs" c="gray.5" mt={6}>*/}
+{/*            {new Date(c.created_at).toLocaleString()}*/}
+{/*          </Text>*/}
+{/*        </Card>*/}
+{/*      ))}*/}
+{/*    </Stack>*/}
+{/*  )}*/}
+{/*</Card>*/}
 
         {/* Stats Grid */}
         <Stack mb={32} gap="md">

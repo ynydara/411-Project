@@ -124,7 +124,7 @@ def parse_ai_response(output: str) -> dict:
         # Raw values from model
         raw_sentiment = parsed.get("sentiment", "neutral")
         raw_category = parsed.get("category", "other")
-        raw_construct = parsed.get("constructiveness_score", 0.5)
+        raw_construct = parsed.get("constructiveness_score")
         raw_confidence = parsed.get("confidence", 0.5)
 
         # Clamp sentiment to allowed values

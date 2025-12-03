@@ -17,25 +17,6 @@ def initdb():
         password="password"
     )
     cur = conn.cursor()
-    # cur.execute("""
-    #             CREATE TABLE IF NOT EXISTS leaderboard
-    #             (
-    #                 id SERIAL PRIMARY KEY,
-    #                 name TEXT NOT NULL,
-    #                 score INT NOT NULL
-    #             );
-    #             """)
-
-    # cur.execute("DELETE FROM leaderboard;") #delete this at some point
-    # cur.execute("SELECT COUNT(*) FROM leaderboard;")
-    # if cur.fetchone()[0] == 0:  # only inserts if empty
-    #     cur.execute("""
-    #                 INSERT INTO leaderboard (name, score)
-    #                 VALUES ('Amber', 100),
-    #                        ('Julie', 80),
-    #                        ('Alyssa', 60);
-    #                 """)
-
     conn.commit()
     cur.close()
     conn.close()
@@ -650,6 +631,73 @@ def get_user_prs():
         return jsonify({"error": "Failed to fetch PRs", "details": err}), 500
 
     return jsonify(prs)
+
+@app.route("/api/github/user/prs/comments")
+def get_user_comments():
+    """
+    Get PRs for a given GitHub username.
+    Uses app-level PAT (GITHUB_TOKEN) and a query param ?username=
+    """
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token=None,  # force use of PAT
+    )
+
+    #comments in a PR
+
+    comments = []
+
+    for pr in prs["items"]:
+        print(pr)
+        #owner = pr["base"]["repo"]["owner"]["login"]
+        # owner = pr.get("repo_owner")
+        # repo = pr.get("repo_name")
+        repo_url = pr.get("repository_url")  # e.g., https://api.github.com/repos/ynydara/411-Project
+        owner, repo = repo_url.split("/")[-2:]
+        pr_number = pr["number"]
+        print(pr_number)
+       # review_comments = github_get(f"/repos/{owner}/{repo}/pulls/{pr_number}/comments", token=NONE)
+       #  review_comments = github_get(f"/repos/{owner}/{repo}/pulls/{pr_number}/comments", token=None)
+        #issue_comments = github_get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", token=None)
+
+        # Conversation comments
+        issue_comments, err1 = github_get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", token=None)
+        # Review comments (inline)
+        review_comments, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{pr_number}/comments", token=None)
+
+        all_comments = []
+        if issue_comments: all_comments.extend(issue_comments)
+        if review_comments: all_comments.extend(review_comments)
+
+        my_comments = [c for c in all_comments if c.get("user", {}).get("login") == username]
+
+        if issue_comments is None:
+            review_comments = []
+
+        # my_comments = [
+        #     c for c in issue_comments
+        #     if c is not None and c.get("user", {}).get("login") == username
+        # ]
+        # my_comments = [c for c in review_comments if c["user"]["login"] == username]
+        if my_comments:
+            comments.append({
+                "pr_number": pr_number,
+                "repo": f"{owner}/{repo}",
+                "comments": my_comments
+            })
+            print(jsonify(comments))
+            print(my_comments)
+
+    if err:
+        # Bubble up the GitHub error so you can see it in the browser
+        return jsonify({"error": "Failed to fetch PRs and their comments", "details": err}), 500
+
+    return jsonify(comments)
 # ---------------------- REPO PRs -------------------------
 @app.route("/api/github/repos/<owner>/<repo>/prs")
 def get_repo_prs(owner, repo):
@@ -685,7 +733,18 @@ def get_pr_details(owner, repo, number):
 
     return jsonify({"pr": pr, "files": files})
 
+def compute_score(sentiment: str, constructiveness: float) -> float:
+    """Compute score based on rubric."""
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0
+    }.get(sentiment.lower(), 0.5)
 
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+
+    intScore = int(round(score,2)) #database only accepts ints, no decimals
+    return intScore
 
 @app.route("/api/analyze", methods=["POST"])
 def analyze_proxy():
