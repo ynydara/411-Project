@@ -1,6 +1,8 @@
 import { Card, Badge, Progress, Grid, Text, Title, Group, ThemeIcon, Box, Container, } from "@mantine/core";
 import {LuTrophy, LuStar, LuZap, LuTarget, LuAward, LuLock, LuFlame, LuCrown, LuMedal, LuSparkles, } from "react-icons/lu";
 import "./App.css";
+import {useEffect, useMemo, useState} from "react";
+import {useAuth0} from "@auth0/auth0-react";
 
 interface Achievement {
   id: number;
@@ -13,11 +15,19 @@ interface Achievement {
   earnedDate?: string;
   max?: number;
   current?: number;
+  points?: number;
 }
 
 const IconWrapper = ({ icon: Icon, size = 24 }: { icon: any; size?: number }) => <Icon size={size} />;
 
 export function Achievements() {
+
+
+ const { user, isAuthenticated } = useAuth0();
+const [userPoints, setUserPoints] = useState<number>(0);
+  const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
+  const [userId, setUserId] = useState<number | null>(null);
+
   const achievements: Achievement[] = [
     {
       id: 1,
@@ -27,17 +37,18 @@ export function Achievements() {
       earned: true,
       rarity: "common",
       progress: 100,
-      earnedDate: "2025-10-15",
+        points: 1,
+
     },
     {
       id: 2,
-      name: "Review Streak",
-      description: "Review code for 7 days in a row",
+      name: "200 points",
+      description: "Achieved 200 points overall",
       icon: ({ size = 20 }) => <IconWrapper icon={LuFlame} size={size} />,
-      earned: true,
+      earned: false,
       rarity: "rare",
       progress: 100,
-      earnedDate: "2025-10-28",
+        points: 5,
     },
     {
       id: 3,
@@ -48,17 +59,19 @@ export function Achievements() {
       rarity: "epic",
       progress: 100,
       earnedDate: "2025-11-02",
+        points: 1,
     },
     {
       id: 4,
-      name: "Bug Hunter",
-      description: "Find 50 critical bugs in reviews",
+      name: "600 points",
+      description: "Achieved 600 points overall",
       icon: ({ size = 20 }) => <IconWrapper icon={LuTarget} size={size} />,
       earned: false,
       rarity: "rare",
       progress: 68,
       max: 50,
       current: 34,
+        points: 10,
     },
     {
       id: 5,
@@ -69,17 +82,19 @@ export function Achievements() {
       rarity: "uncommon",
       progress: 100,
       earnedDate: "2025-10-20",
+        points: 10,
     },
     {
       id: 6,
       name: "Quality Expert",
-      description: "Maintain 95% average review score for a month",
+      description: "Gain 3000 points",
       icon: ({ size = 20 }) => <IconWrapper icon={LuAward} size={size} />,
       earned: false,
       rarity: "epic",
       progress: 45,
       max: 30,
       current: 13,
+        points: 50,
     },
     {
       id: 7,
@@ -91,16 +106,17 @@ export function Achievements() {
       progress: 0,
       max: 1000,
       current: 0,
+        points: 20,
     },
     {
       id: 8,
-      name: "Team Player",
-      description: "Help 10 different developers",
+      name: "Negative score",
+      description: "somehow achieve a negative score",
       icon: ({ size = 20 }) => <IconWrapper icon={LuMedal} size={size} />,
-      earned: true,
+      earned: false,
       rarity: "uncommon",
       progress: 100,
-      earnedDate: "2025-10-25",
+        points: 100,
     },
     {
       id: 9,
@@ -112,8 +128,16 @@ export function Achievements() {
       progress: 86,
       max: 50,
       current: 43,
+        points: 3,
     },
   ];
+interface LeaderboardEntry {
+  id: number;
+  name: string;
+  score: number;
+  img?: string;
+}
+
 
   const rarityColors: Record<Achievement["rarity"], string> = {
     common: "gray",
@@ -123,11 +147,52 @@ export function Achievements() {
     legendary: "yellow",
   };
 
-  const stats = {
-    total: achievements.length,
-    earned: achievements.filter((a) => a.earned).length,
-    points: achievements.filter((a) => a.earned).length * 100,
-  };
+
+const achievementsWithEarned = useMemo(() => {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return achievements.map(a => {
+    // Calculate if earned
+    let earned = a.earned;
+    if (a.name === "200 points") earned = userPoints >= 200;
+    if (a.name === "600 points") earned = userPoints >= 600;
+    if (a.name === "Quality Expert") earned = userPoints >=4000;
+
+    let earnedDate = a.earnedDate;
+    if (earned && !earnedDate) {
+      earnedDate = today;
+    }
+
+    return { ...a, earned, earnedDate };
+  });
+}, [userPoints, achievements]);
+
+
+
+const stats = {
+  total: achievementsWithEarned.length,
+  earned: achievementsWithEarned.filter((a) => a.earned).length,
+  points: achievementsWithEarned.reduce((sum, a) => sum + (a.earned ? a.points ?? 0 : 0), 0),
+};
+
+
+
+
+   useEffect(() => {
+    const fetchUser = async () => {
+      const res = await fetch("/api/users?type=overall");
+      const data = await res.json();
+      const currentUser: LeaderboardEntry | undefined = data.leaderboard.find(
+        (u: LeaderboardEntry) => u.name === user?.nickname
+      );
+      if (currentUser) {
+        setUserPoints(currentUser.score);
+        setUserId(currentUser.id);
+      }
+    };
+    fetchUser();
+  }, []);
+
+
 
   return (
     <Box style={{ backgroundColor: "#0d1117", minHeight: "100vh", padding: 32 }}>
@@ -209,7 +274,7 @@ export function Achievements() {
 
         {/* Achievements Grid */}
         <Grid>
-          {achievements.map((achievement) => {
+          {achievementsWithEarned.map((achievement) => {
             const Icon = achievement.icon;
             const color = rarityColors[achievement.rarity];
 

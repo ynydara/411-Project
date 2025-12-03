@@ -49,7 +49,7 @@ export function Navbar() {
             </ThemeIcon>
           </Box>
           <Text color="white" fw={700} size="lg">
-            CodeReview AI
+            PRank
           </Text>
         </Group>
 

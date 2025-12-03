@@ -22,6 +22,8 @@ export function Leaderboard() {
 const [members, setMembers] = useState<LeaderboardEntry[] | null>(null);
 const [activeTab, setActiveTab] = useState<string>("overall");
  const { user, isAuthenticated } = useAuth0();
+const [username, setUsername] = useState<string | null>(null);
+
 
 const fetchLeaderboard = async (type: string) => {
   //  setMembers(null);
@@ -39,112 +41,18 @@ const fetchLeaderboard = async (type: string) => {
       setMembers([]);
     }
   };
-    // const leaderboardData = [
-    //   {
-    //     rank: 1,
-    //     username: "sarah-dev",
-    //     score: 2847,
-    //     reviews: 342,
-    //     accuracy: 96,
-    //     streak: 45,
-    //     change: 2,
-    //     level: 28,
-    //   },
-    //   {
-    //     rank: 2,
-    //     username: "mike-codes",
-    //     score: 2734,
-    //     reviews: 318,
-    //     accuracy: 94,
-    //     streak: 32,
-    //     change: -1,
-    //     level: 27,
-    //   },
-    //   {
-    //     rank: 3,
-    //     username: "alex-eng",
-    //     score: 2612,
-    //     reviews: 295,
-    //     accuracy: 95,
-    //     streak: 28,
-    //     change: 1,
-    //     level: 26,
-    //   },
-    //   {
-    //     rank: 4,
-    //     username: "you",
-    //     score: 2401,
-    //     reviews: 267,
-    //     accuracy: 92,
-    //     streak: 21,
-    //     change: 0,
-    //     level: 24,
-    //     isCurrentUser: true,
-    //   },
-    //   {
-    //     rank: 5,
-    //     username: "emma-tech",
-    //     score: 2289,
-    //     reviews: 251,
-    //     accuracy: 91,
-    //     streak: 19,
-    //     change: 3,
-    //     level: 23,
-    //   },
-    //   {
-    //     rank: 6,
-    //     username: "chris-dev",
-    //     score: 2156,
-    //     reviews: 234,
-    //     accuracy: 89,
-    //     streak: 15,
-    //     change: -2,
-    //     level: 22,
-    //   },
-    //   {
-    //     rank: 7,
-    //     username: "lisa-codes",
-    //     score: 2043,
-    //     reviews: 221,
-    //     accuracy: 90,
-    //     streak: 17,
-    //     change: 1,
-    //     level: 21,
-    //   },
-    //   {
-    //     rank: 8,
-    //     username: "james-eng",
-    //     score: 1987,
-    //     reviews: 208,
-    //     accuracy: 88,
-    //     streak: 12,
-    //     change: 0,
-    //     level: 20,
-    //   },
-    //   {
-    //     rank: 9,
-    //     username: "olivia-dev",
-    //     score: 1845,
-    //     reviews: 192,
-    //     accuracy: 87,
-    //     streak: 14,
-    //     change: 2,
-    //     level: 19,
-    //   },
-    //   {
-    //     rank: 10,
-    //     username: "noah-tech",
-    //     score: 1723,
-    //     reviews: 178,
-    //     accuracy: 85,
-    //     streak: 10,
-    //     change: -1,
-    //     level: 18,
-    //   },
-    // ];
+
 useEffect(() => {
     fetchLeaderboard(activeTab);
   }, [activeTab]);
+
+useEffect(() => {
+  if (isAuthenticated && user) {
+    setUsername((user as any).nickname || (user as any).name || null);
+  } else {
+    setUsername(null);
+  }
+}, [isAuthenticated, user]);
     // Rank icons
     const getRankIcon = (rank: number) => {
         if (rank === 1) return (
@@ -191,14 +99,21 @@ useEffect(() => {
     };
 
 
-    if (!isAuthenticated) return <Text c="white">Please log in</Text>;
+    //if (!isAuthenticated) return <Text c="black">Please log in</Text>;
   if (!members) return <Text c="white">Loading...</Text>;
 
-  const username = (user as any).nickname;
+    // if(isAuthenticated){
+    //      const username = (user as any).nickname;
+    // }
+    //
+    // if(!isAuthenticated){
+    //     const username = "undefined"
+    // }
+
     if(!members){
       return <Text c="white">Loading...</Text>;
     }
-    if (members != null && isAuthenticated) {
+    if (members != null) {
 
         return (
             <Box bg="#0d1117" pt={32} pb={64} style={{minHeight: "100vh"}}>
@@ -335,6 +250,7 @@ useEffect(() => {
                                                 key={member.id}
                                                 style={{
                                                     backgroundColor:
+
                                                         isAuthenticated && member.name.toLowerCase() == username
                                                        ? "rgba(34,197,94,0.08)" : "transparent",
                                                     cursor: "pointer",
