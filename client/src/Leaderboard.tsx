@@ -330,7 +330,7 @@ useEffect(() => {
 
                                     <Table.Tbody>
 
-                                        {members.map((member) => (
+                                        {members.map((member, index) => (
                                             <Table.Tr
                                                 key={member.id}
                                                 style={{
@@ -341,6 +341,7 @@ useEffect(() => {
                                                 }}
                                             >
                                                 <Table.Td>
+                                                    {getRankIcon(index + 1)}
                                                     {/*{getRankIcon(user.rank)}*/}
                                                 </Table.Td>
 
@@ -419,7 +420,7 @@ useEffect(() => {
 
                                     <Table.Tbody>
 
-                                        {members.map((member) => (
+                                        {members.map((member, index) => (
                                             <Table.Tr
                                                 key={member.id}
                                                 style={{
@@ -430,6 +431,7 @@ useEffect(() => {
                                                 }}
                                             >
                                                 <Table.Td>
+                                                 {getRankIcon(index + 1)}
                                                     {/*{getRankIcon(user.rank)}*/}
                                                 </Table.Td>
 
@@ -496,7 +498,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score", "Reviews", "Change"].map((h) => (
+                                            {["Rank", "User", "Score", "Change"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
@@ -507,7 +509,7 @@ useEffect(() => {
 
                                     <Table.Tbody>
 
-                                        {members.map((member) => (
+                                        {members.map((member, index) => (
                                             <Table.Tr
                                                 key={member.id}
                                                 style={{
@@ -518,6 +520,7 @@ useEffect(() => {
                                                 }}
                                             >
                                                 <Table.Td>
+                                                    {getRankIcon(index + 1)}
                                                     {/*{getRankIcon(user.rank)}*/}
                                                 </Table.Td>
 
