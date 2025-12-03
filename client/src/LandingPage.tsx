@@ -33,7 +33,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               radius="xl"
               variant="transparent"
               color="yellow"
-              style={{ position: "absolute", top: -10, right: -10 }}
+              style={{ position: "absolute", top: -10, right: -8 }}
             >
               <IconWrapper icon={LuStar} size={30} />
             </ThemeIcon>
@@ -81,6 +81,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                   shadow="sm"
                   radius="lg"
                   p="lg"
+                  mih="100%"
                   style={{ backgroundColor: "#161b22", border: "1px solid #30363d", transition: "border-color 0.3s ease" }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#16a34a")}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30363d")}

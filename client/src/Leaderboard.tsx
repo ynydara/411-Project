@@ -298,8 +298,9 @@ useEffect(() => {
                               value={activeTab}
                               onChange={(value: string | null) => setActiveTab(value || "overall")}
                               variant="pills"
-                              radius="xl"
-                              style={{ backgroundColor: "#161b22", borderColor: "#30363d" }}
+                              radius="md"
+                              color="#30363d" c="gray.5"
+                             // style={{ backgroundColor: "#161b22", borderColor: "#30363d" }}
 >
 
                             <Tabs.List px="md" pt="md">
