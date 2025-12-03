@@ -70,12 +70,14 @@ interface AiAnalysisData {
   constructiveness_score: number;
   suggestions: string[];
   confidence: number;
+  score?: number;
 }
 
 interface AiAnalyzeResponse {
   model: string;
   success: boolean;
   data: AiAnalysisData;
+  insight?: any;
 }
 
 interface GithubUser {
@@ -297,66 +299,75 @@ useEffect(() => {
       const reviews: RecentReview[] = [];
 
       // 2) Call AI-service for each PR (same as before)
-      for (const pr of topPrs) {
+     for (const pr of topPrs) {
         try {
-          const aiRes = await fetch("/api/analyze", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "pr",
-              content: pr.title,
-            }),
-          });
+            const aiRes = await fetch("/api/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "pr",
+                content: pr.title,
+                githubId: (user as any).nickname,
+                file: pr.html_url,
+              }),
+            });
 
-          if (!aiRes.ok) {
-            console.warn("AI-service failed for PR", pr.number, aiRes.status);
-            continue;
+            if (!aiRes.ok) {
+              console.warn("AI-service failed for PR", pr.number, aiRes.status);
+              continue;
+            }
+
+            const aiJson = (await aiRes.json()) as AiAnalyzeResponse;
+
+            if (!aiJson.success || !aiJson.data) {
+              console.warn("AI-service returned unsuccessful for PR", pr.number);
+              continue;
+            }
+
+            const analysis = aiJson.data;
+
+
+            const backendScore = (analysis as any).score;
+            const score =
+              typeof backendScore === "number"
+                ? backendScore
+                : scoreFromAnalysis(analysis);
+
+
+            const type = sentimentToInsightType(analysis.sentiment);
+
+            insights.push({
+              prNumber: pr.number,
+              title: analysis.summary || pr.title,
+              description:
+                analysis.suggestions?.[0] ??
+                "AI has feedback for this pull request.",
+              file: pr.html_url,
+              type, // <-- now `type` is in scope
+              confidence: Math.round((analysis.confidence ?? 0.5) * 100),
+            });
+
+            reviews.push({
+              pr: `#${pr.number}`,
+              title: pr.title,
+              author: pr.user.login,
+              score,
+              status: statusFromScore(score),
+            });
+          } catch (err) {
+            console.error("Error analyzing PR", pr.number, err);
           }
-
-          const aiJson = (await aiRes.json()) as AiAnalyzeResponse;
-          if (!aiJson.success || !aiJson.data) {
-            console.warn("AI-service returned unsuccessful for PR", pr.number);
-            continue;
-          }
-
-          const analysis = aiJson.data;
-          const type = sentimentToInsightType(analysis.sentiment);
-          const score = scoreFromAnalysis(analysis);
-
-          insights.push({
-            prNumber: pr.number,
-            title: analysis.summary || pr.title,
-            description:
-              analysis.suggestions?.[0] ??
-              "AI has feedback for this pull request.",
-            file: pr.html_url,
-            type,
-            confidence: Math.round((analysis.confidence ?? 0.5) * 100),
-          });
-
-          reviews.push({
-            pr: `#${pr.number}`,
-            title: pr.title,
-            author: pr.user.login,
-            score,
-            status: statusFromScore(score),
-          });
-        } catch (err) {
-          console.error("Error analyzing PR", pr.number, err);
         }
-      }
 
-      // 3) Same stats logic
+        // 3) Same stats logic
       const reviewsThisWeek = prItems.filter((pr) =>
         isWithinLastNDays(pr.created_at, 7)
       ).length;
 
       const avgReviewScore =
         reviews.length > 0
-          ? Math.round(
-              reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length
-            )
-          : 0;
+        ? Math.round(reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length)
+        : 0;
 
       const commentsMade = prItems.reduce(
         (sum, pr) => sum + (pr.comments || 0),

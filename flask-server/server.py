@@ -686,24 +686,128 @@ def get_pr_details(owner, repo, number):
     return jsonify({"pr": pr, "files": files})
 
 
+def compute_score(sentiment: str, constructiveness: float) -> int:
+    """Compute score based on rubric."""
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0,
+    }.get((sentiment or "").lower(), 0.5)
+
+    # Weighted combo: 60% constructiveness, 40% sentiment
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+
+    # DB expects int
+    return int(round(score))
+
 
 @app.route("/api/analyze", methods=["POST"])
-def analyze_proxy():
-    data = request.json or {}
-
-    if "content" not in data:
-        return jsonify({"error": "Missing content"}), 400
-
+def analyze():
     try:
-        resp = requests.post(
-            f"{AI_SERVICE_URL}/analyze",
-            json=data,
-            timeout=60
-        )
-        return jsonify(resp.json())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        data = request.get_json(force=True) or {}
+        print("Incoming /api/analyze payload:", data)
 
+        # Who are we scoring for?
+        user_id = data.get("user_id")  # optional
+        github_id = data.get("githubId") or data.get("github_id")
+
+        content = data.get("content")
+        analysis_type = data.get("type", "text")
+
+        if not content:
+            return jsonify({"error": "Missing content"}), 400
+
+        # Payload for AI-service
+        payload = {"type": analysis_type, "content": content, "file": data.get("file", "unknown")}
+
+        # ------------------ Call AI service ------------------
+        try:
+            resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
+            resp.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print("Error contacting AI service:", e)
+            if getattr(e, "response", None) is not None:
+                try:
+                    print("AI error response text:", e.response.text)
+                except Exception:
+                    pass
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+
+        # ------------------ Parse AI response ------------------
+        try:
+            result = resp.json()
+        except ValueError:
+            print("Invalid JSON from AI service:", resp.text)
+            traceback.print_exc()
+            return jsonify({"error": "Invalid JSON from AI service"}), 500
+
+        print("AI Service response:", result)
+
+        # Our ai-service returns { model, success, data: {...}, insight: {...} }
+        analysis = result.get("data") or {}
+        sentiment = analysis.get("sentiment", "neutral")
+
+        raw_construct = analysis.get("constructiveness_score", 0.5)
+        try:
+            constructiveness = float(raw_construct)
+        except (TypeError, ValueError):
+            constructiveness = 0.5
+
+        score = compute_score(sentiment, constructiveness)
+
+        # Attach score so frontend can see it
+        analysis["score"] = score
+        result["data"] = analysis
+
+        # ------------------ Update DB (code_score) ------------------
+        resolved_user_id = None
+
+        if user_id is not None:
+            resolved_user_id = user_id
+        elif github_id:
+            conn = getdbconnection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT id FROM users WHERE githubId = %s;", (github_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        resolved_user_id = row[0]
+            finally:
+                conn.close()
+
+        if resolved_user_id is not None:
+            conn = getdbconnection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE users
+                        SET code_score = code_score + %s
+                        WHERE id = %s
+                        RETURNING id, code_score;
+                        """,
+                        (score, resolved_user_id),
+                    )
+                    updated = cursor.fetchone()
+                    if not updated:
+                        conn.rollback()
+                        print("No user row found for id:", resolved_user_id)
+                    else:
+                        conn.commit()
+                        print("Updated user code_score:", updated)
+            finally:
+                conn.close()
+        else:
+            print("No user_id / githubId resolved; skipping DB update")
+
+        # Return AI result (with score in data) to frontend
+        return jsonify(result)
+
+    except Exception as e:
+        print("Unhandled exception in /api/analyze:", e)
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/health")
 def health():
