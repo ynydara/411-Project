@@ -1,5 +1,3 @@
-// src/Dashboard.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -55,9 +53,7 @@ function decodeJwt(token?: string): any | null {
   }
 }
 
-// ==================================================
-// TYPES
-// ==================================================
+
 
 type Sentiment = "positive" | "neutral" | "negative";
 type Category = "feature" | "bugfix" | "refactor" | "documentation" | "other";
@@ -132,14 +128,8 @@ declare global {
   }
 }
 
-// ==================================================
-// HELPERS
-// ==================================================
 
-/**
- * Extract the GitHub token from Auth0's token response.
- * Assumes an Auth0 Action has added "github_access_token" to the token claims.
- */
+
 async function getGithubToken(
   getAccessTokenSilently: (options?: any) => Promise<any>
 ): Promise<string> {
@@ -251,9 +241,7 @@ const IconWrapper: React.FC<{ icon: LucideIcon; size?: number }> = ({
   size = 24,
 }) => <Icon size={size} />;
 
-// ==================================================
-// MAIN COMPONENT
-// ==================================================
+
 
 export const Dashboard: React.FC = () => {
   const { user, isAuthenticated, isLoading, getAccessTokenSilently } = useAuth0();
@@ -283,7 +271,7 @@ useEffect(() => {
         return;
       }
 
-      // 1) Fetch user's PRs from backend by username
+
       const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
 
       if (!prsRes.ok) {
@@ -298,7 +286,7 @@ useEffect(() => {
       const insights: AiInsight[] = [];
       const reviews: RecentReview[] = [];
 
-      // 2) Call AI-service for each PR (same as before)
+
      for (const pr of topPrs) {
         try {
             const aiRes = await fetch("/api/analyze", {
@@ -359,10 +347,8 @@ useEffect(() => {
           }
         }
 
-        // 3) Same stats logic
-      const reviewsThisWeek = prItems.filter((pr) =>
-        isWithinLastNDays(pr.created_at, 7)
-      ).length;
+
+      const reviewsThisWeek = topPrs.length;
 
       const avgReviewScore =
         reviews.length > 0
@@ -427,11 +413,6 @@ useEffect(() => {
         }, [isAuthenticated, user]);
 
 
-  // ==================================================
-  // LOADING / AUTH STATES
-  // ==================================================
-
-
   if (isLoading) {
     return (
       <Box
@@ -466,10 +447,6 @@ useEffect(() => {
       </Box>
     );
   }
-
-  // ==================================================
-  // MAIN UI
-  // ==================================================
 
   return (
     <Box style={{ minHeight: "100vh", backgroundColor: "#0d1117", padding: 32 }}>
