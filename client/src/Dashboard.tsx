@@ -1,5 +1,3 @@
-// src/Dashboard.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -76,6 +74,7 @@ interface AiAnalyzeResponse {
   model: string;
   success: boolean;
   data: AiAnalysisData;
+  insight?: any;
 }
 
 interface GithubUser {
@@ -145,10 +144,7 @@ declare global {
 // HELPERS
 // ==================================================
 
-/**
- * Extract the GitHub token from Auth0's token response.
- * Assumes an Auth0 Action has added "github_access_token" to the token claims.
- */
+
 async function getGithubToken(
   getAccessTokenSilently: (options?: any) => Promise<any>
 ): Promise<string> {
@@ -279,9 +275,7 @@ const IconWrapper: React.FC<{ icon: LucideIcon; size?: number }> = ({
   size = 24,
 }) => <Icon size={size} />;
 
-// ==================================================
-// MAIN COMPONENT
-// ==================================================
+
 
 export const Dashboard: React.FC = () => {
   const { user, isAuthenticated, isLoading, getAccessTokenSilently } = useAuth0();
@@ -320,6 +314,7 @@ useEffect(() => {
       console.log("Updated scores:", scoreRes);
 
       // 1) Fetch user's PRs from backend by username
+
       const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
 
       const commentsRes = await fetch(`/api/github/user/prs/comments?username=${encodeURIComponent(username)}`);
@@ -404,69 +399,80 @@ setCommentList(commentItems);
       // const insights: AiInsight[] = [];
       // const reviews: RecentReview[] = [];
 
-      // 2) Call AI-service for each PR (same as before)
-      for (const pr of topPrs) {
+
+     for (const pr of topPrs) {
         try {
-          const aiRes = await fetch("/api/analyze", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "pr",
-              content: pr.title,
-            }),
-          });
+            const aiRes = await fetch("/api/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "pr",
+                content: pr.title,
+                githubId: (user as any).nickname,
+                file: pr.html_url,
+              }),
+            });
 
-          if (!aiRes.ok) {
-            console.warn("AI-service failed for PR", pr.number, aiRes.status);
-            continue;
+            if (!aiRes.ok) {
+              console.warn("AI-service failed for PR", pr.number, aiRes.status);
+              continue;
+            }
+
+            const aiJson = (await aiRes.json()) as AiAnalyzeResponse;
+
+            if (!aiJson.success || !aiJson.data) {
+              console.warn("AI-service returned unsuccessful for PR", pr.number);
+              continue;
+            }
+
+            const analysis = aiJson.data;
+
+
+            const backendScore = (analysis as any).score;
+            const score =
+              typeof backendScore === "number"
+                ? backendScore
+                : scoreFromAnalysis(analysis);
+
+
+            const type = sentimentToInsightType(analysis.sentiment);
+
+            insights.push({
+              prNumber: pr.number,
+              title: analysis.summary || pr.title,
+              description:
+                analysis.suggestions?.[0] ??
+                "AI has feedback for this pull request.",
+              file: pr.html_url,
+              type, // <-- now `type` is in scope
+              confidence: Math.round((analysis.confidence ?? 0.5) * 100),
+            });
+
+            reviews.push({
+              pr: `#${pr.number}`,
+              title: pr.title,
+              author: pr.user.login,
+              score,
+              status: statusFromScore(score),
+            });
+          } catch (err) {
+            console.error("Error analyzing PR", pr.number, err);
           }
-
-          const aiJson = (await aiRes.json()) as AiAnalyzeResponse;
-          if (!aiJson.success || !aiJson.data) {
-            console.warn("AI-service returned unsuccessful for PR", pr.number);
-            continue;
-          }
-
-          const analysis = aiJson.data;
-          const type = sentimentToInsightType(analysis.sentiment);
-          const score = scoreFromAnalysis(analysis);
-
-          insights.push({
-            prNumber: pr.number,
-            title: analysis.summary || pr.title,
-            description:
-              analysis.suggestions?.[0] ??
-              "AI has feedback for this pull request.",
-            file: pr.html_url,
-            type,
-            confidence: Math.round((analysis.confidence ?? 0.5) * 100),
-          });
-
-          reviews.push({
-            pr: `#${pr.number}`,
-            title: pr.title,
-            author: pr.user.login,
-            score,
-            status: statusFromScore(score),
-          });
-        } catch (err) {
-          console.error("Error analyzing PR", pr.number, err);
         }
-      }
 
+
+      const reviewsThisWeek = topPrs.length;
 
 
       // 3) Same stats logic
-      const reviewsThisWeek = prItems.filter((pr) =>
-        isWithinLastNDays(pr.created_at, 7)
-      ).length;
+      // const reviewsThisWeek = prItems.filter((pr) =>
+      //   isWithinLastNDays(pr.created_at, 7)
+      // ).length;
 
       const avgReviewScore =
         reviews.length > 0
-          ? Math.round(
-              reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length
-            )
-          : 0;
+        ? Math.round(reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length)
+        : 0;
 
       // const commentsMade = prItems.reduce(
       //   (sum, pr) => sum + (pr.comments || 0),
@@ -543,11 +549,6 @@ setCommentList(commentItems);
         }, [isAuthenticated, user]);
 
 
-  // ==================================================
-  // LOADING / AUTH STATES
-  // ==================================================
-
-
   if (isLoading) {
     return (
       <Box
@@ -582,10 +583,6 @@ setCommentList(commentItems);
       </Box>
     );
   }
-
-  // ==================================================
-  // MAIN UI
-  // ==================================================
 
   return (
     <Box style={{ minHeight: "100vh", backgroundColor: "#0d1117", padding: 32 }}>
