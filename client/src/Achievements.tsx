@@ -1,9 +1,7 @@
 import { Card, Badge, Progress, Grid, Text, Title, Group, ThemeIcon, Box, Container, } from "@mantine/core";
 import {LuTrophy, LuStar, LuZap, LuTarget, LuAward, LuLock, LuFlame, LuCrown, LuMedal, LuSparkles, } from "react-icons/lu";
 import "./App.css";
-import {useEffect, useMemo, useState} from "react";
 import {useAuth0} from "@auth0/auth0-react";
-import {updateUserScores} from "./Dashboard";
 
 interface Achievement {
   id: number;
@@ -12,145 +10,112 @@ interface Achievement {
   icon: React.FC<{ size?: number }>;
   earned: boolean;
   rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
+  progress: number;
   earnedDate?: string;
   max?: number;
-  maxPR?: number;
   current?: number;
-  PRCount?: number;
-  points?: number;
-}
-interface GithubUser {
-  login: string;
-  avatar_url: string | null;
-}
-
-interface GithubSearchResponse {
-  total_count?: number;
-  items: GithubPR[];
-}
-
-interface GithubPR {
-  id: number;
-  number: number;
-  title: string;
-  created_at: string;
-  // comments: number;
-  user: GithubUser;
-  html_url: string;
-  commentData?: Array<{ id: number; body: string; user: GithubUser }>;
 }
 
 const IconWrapper = ({ icon: Icon, size = 24 }: { icon: any; size?: number }) => <Icon size={size} />;
 
 export function Achievements() {
-
-
- const { user, isAuthenticated } = useAuth0();
-const [userPoints, setUserPoints] = useState<number>(0);
-const [prCount, setPrCount] = useState<number>(0);
-  const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
-  const [userId, setUserId] = useState<number | null>(null);
-  const [reviewsThisWeek, setReviewsThisWeek] = useState<number>(0);
-
-
+     const { user, isAuthenticated } = useAuth0();
   const achievements: Achievement[] = [
     {
       id: 1,
       name: "First Review",
       description: "Complete your first code review",
       icon: ({ size = 20 }) => <IconWrapper icon={LuStar} size={size} />,
-      earned: false,
+        earned: isAuthenticated,
       rarity: "common",
-        points: 1,
-
+      progress: 100,
+      earnedDate: "2025-10-15",
     },
     {
       id: 2,
-      name: "200 points",
-      description: "Achieved 200 points overall",
+      name: "Review Streak",
+      description: "Review code for 7 days in a row",
       icon: ({ size = 20 }) => <IconWrapper icon={LuFlame} size={size} />,
-      earned: false,
+      earned: isAuthenticated,
       rarity: "rare",
-        max: 200,
-        points: 5,
+      progress: 100,
+      earnedDate: "2025-10-28",
     },
     {
       id: 3,
-      name: "First PR",
-      description: "Have 1 PR be reviewed by our AI",
+      name: "Century Club",
+      description: "Complete 100 code reviews",
       icon: ({ size = 20 }) => <IconWrapper icon={LuTrophy} size={size} />,
-      earned: false,
-      rarity: "common",
-        points: 1,
+      earned: isAuthenticated,
+      rarity: "epic",
+      progress: 100,
+      earnedDate: "2025-11-02",
     },
     {
       id: 4,
-      name: "600 points",
-      description: "Achieved 600 points overall",
+      name: "Bug Hunter",
+      description: "Find 50 critical bugs in reviews",
       icon: ({ size = 20 }) => <IconWrapper icon={LuTarget} size={size} />,
       earned: false,
       rarity: "rare",
-      max: 600,
-        points: 10,
+      progress: 68,
+      max: 50,
+      current: 34,
     },
     {
       id: 5,
-      name: "OMEGA",
-      description: "Have 3 PRs be reviewed by our AI",
+      name: "Lightning Fast",
+      description: "Complete a review in under 5 minutes",
       icon: ({ size = 20 }) => <IconWrapper icon={LuZap} size={size} />,
-      earned: false,
+      earned: isAuthenticated,
       rarity: "uncommon",
-        maxPR: 3,
-        points: 10,
+      progress: 100,
+      earnedDate: "2025-10-20",
     },
     {
       id: 6,
       name: "Quality Expert",
-      description: "Gain 3000 points",
+      description: "Maintain 95% average review score for a month",
       icon: ({ size = 20 }) => <IconWrapper icon={LuAward} size={size} />,
       earned: false,
       rarity: "epic",
-      max: 3000,
-        points: 50,
+      progress: 45,
+      max: 30,
+      current: 13,
     },
     {
       id: 7,
-      name: "Ultimate Coder",
-      description: "Gain 10000000 points",
+      name: "Code Connoisseur",
+      description: "Review 1000 lines of code",
       icon: ({ size = 20 }) => <IconWrapper icon={LuCrown} size={size} />,
       earned: false,
       rarity: "legendary",
-      max: 10000000,
-        points: 20,
+      progress: 0,
+      max: 1000,
+      current: 0,
     },
     {
       id: 8,
-      name: "AI Whisperer",
-      description: "have 100 PRs be reviewed by our AI",
+      name: "Team Player",
+      description: "Help 10 different developers",
       icon: ({ size = 20 }) => <IconWrapper icon={LuMedal} size={size} />,
-      earned: false,
-      rarity: "legendary",
-        maxPR: 100,
-        points: 100,
+      earned: isAuthenticated,
+      rarity: "uncommon",
+      progress: 100,
+      earnedDate: "2025-10-25",
     },
     {
       id: 9,
-      name: "4 Prs",
-      description: "Have 4 Prs be reviewed by our AI",
+      name: "AI Whisperer",
+      description: "Accept 50 AI suggestions",
       icon: ({ size = 20 }) => <IconWrapper icon={LuSparkles} size={size} />,
       earned: false,
       rarity: "rare",
-      maxPR: 4,
-        points: 3,
+      progress: 86,
+      max: 50,
+      current: 43,
     },
   ];
-interface LeaderboardEntry {
-  id: number;
-  name: string;
-  score: number;
-  img?: string;
-}
-
 
   const rarityColors: Record<Achievement["rarity"], string> = {
     common: "gray",
@@ -160,114 +125,11 @@ interface LeaderboardEntry {
     legendary: "yellow",
   };
 
-
-const achievementsWithEarned = useMemo(() => {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return achievements.map(a => {
-    // Calculate if earned
-    let earned = a.earned;
-    if (a.name === "First Review") earned = userPoints >= 1;
-    if (a.name === "200 points") earned = userPoints >= 200;
-    if (a.name === "600 points") earned = userPoints >= 600;
-    if (a.name === "Quality Expert") earned = userPoints >=4000;
-    if (a.name === "Ultimate Coder") earned = userPoints >= 10000000;
-
-    if (a.name === "First PR") earned = reviewsThisWeek >= 1;
-    if (a.name === "OMEGA") earned = reviewsThisWeek >= 3;
-    if (a.name === "4 Prs") earned = reviewsThisWeek >= 4;
-    if (a.name === "AI Whisperer") earned = reviewsThisWeek >= 100;
-
-    let earnedDate = a.earnedDate;
-    if (earned && !earnedDate) {
-      earnedDate = today;
-    }
-
-    const current = a.maxPR !== undefined ? reviewsThisWeek : userPoints;
-    const displayMax = a.maxPR ?? a.max ?? 100;
-
-    // const PRCount = reviewsThisWeek
-    //   console.log(PRCount);
-    // const current = userPoints;
-
-    return { ...a, earned, earnedDate, current, displayMax };
-  });
-}, [userPoints, achievements]);
-
-
-
-const stats = {
-  total: achievementsWithEarned.length,
-  earned: achievementsWithEarned.filter((a) => a.earned).length,
-  points: achievementsWithEarned.reduce((sum, a) => sum + (a.earned ? a.points ?? 0 : 0), 0),
-};
-
-
-
-
-   useEffect(() => {
-    const fetchUser = async () => {
-      const res = await fetch("/api/users?type=overall");
-      const data = await res.json();
-      const currentUser: LeaderboardEntry | undefined = data.leaderboard.find(
-        (u: LeaderboardEntry) => u.name === user?.nickname
-      );
-      if (currentUser) {
-        setUserPoints(currentUser.score);
-        setUserId(currentUser.id);
-      }
-    };
-    fetchUser();
-  }, []);
-
-
-    useEffect(() => {
-        if (!isAuthenticated || !user) return;
-
-  async function load() {
-      try {
-
-          const username = (user as any).nickname;
-          if (!username) {
-              return;
-          }
-
-          const scoreRes = await updateUserScores(username);
-
-          console.log("Updated scores:", scoreRes);
-
-          const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
-
-
-          const commentsRes = await fetch(`/api/github/user/prs/comments?username=${encodeURIComponent(username)}`);
-
-          if (!prsRes.ok) {
-              const text = await prsRes.text();
-              throw new Error(`Failed to fetch PRs: ${prsRes.status} ${text}`);
-          }
-
-          if (!commentsRes.ok) {
-              const text = await commentsRes.text();
-              throw new Error(`failed to fetch comments': ${commentsRes.status} ${text}`);
-          }
-
-          const prsJson = (await prsRes.json()) as GithubSearchResponse;
-          const prItems: GithubPR[] = prsJson.items ?? [];
-          const topPrs = prItems.slice(0, 4);
-            setReviewsThisWeek(topPrs.length);
-            console.log("Reviews this week:", topPrs.length);
-
-
-          //const reviewsThisWeek = topPrs.length;
-          //console.log(reviewsThisWeek);
-      }
-      catch (err){
-      console.error(err);
-        }
-  }
-           void load();
-    }, [isAuthenticated, user]);
-
-
+  const stats = {
+    total: achievements.length,
+    earned: achievements.filter((a) => a.earned).length,
+    points: achievements.filter((a) => a.earned).length * 100,
+  };
 
   return (
     <Box style={{ backgroundColor: "#0d1117", minHeight: "100vh", padding: 32 }}>
@@ -349,7 +211,7 @@ const stats = {
 
         {/* Achievements Grid */}
         <Grid>
-          {achievementsWithEarned.map((achievement) => {
+          {achievements.map((achievement) => {
             const Icon = achievement.icon;
             const color = rarityColors[achievement.rarity];
 
@@ -399,17 +261,20 @@ const stats = {
                     <Text size="xs" c="green">
                       Earned on {achievement.earnedDate}
                     </Text>
-                  ) : (
+                  ) : ( isAuthenticated && (
                     <Box>
                       <Group justify="space-between" mb={4}>
                         <Text size="xs" c="dimmed">
-                          {achievement.current ?? 0} / {achievement.displayMax}
+                          {achievement.current ?? 0} / {achievement.max ?? 100}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                           {`${achievement.progress}%`}
 
                         </Text>
-
                       </Group>
-
+                      <Progress value={achievement.progress} color={color} size="sm" />
                     </Box>
+                      )
                   )}
                 </Card>
               </Grid.Col>
@@ -419,5 +284,4 @@ const stats = {
       </Container>
     </Box>
   );
-  }
-
+}

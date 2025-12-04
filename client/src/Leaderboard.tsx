@@ -12,11 +12,64 @@ interface LeaderboardEntry {
 
 const IconWrapper = ({ icon: Icon, size = 24 }: { icon: any; size?: number }) => <Icon size={size} />;
 
-
-
-
-
-
+const leaderboardData = [
+    {
+        rank: 1,
+        reviews: 342,
+        accuracy: 96,
+        streak: 45,
+        change: 2,
+        level: 28,
+    },
+    {
+        rank: 2,
+        reviews: 318,
+        accuracy: 94,
+        streak: 32,
+        change: -1,
+        level: 27,
+    },
+    {
+        rank: 3,
+        reviews: 295,
+        accuracy: 95,
+        streak: 21,
+        change: 0,
+        level: 24,
+    },
+    {
+        rank: 4,
+        reviews: 267,
+        accuracy: 92,
+        streak: 21,
+        change: 0,
+        level: 24,
+    },
+    {
+        rank: 5,
+        reviews: 251,
+        accuracy: 91,
+        streak: 19,
+        change: 3,
+        level: 23,
+    },
+    {
+        rank: 6,
+        reviews: 234,
+        accuracy: 89,
+        streak: 15,
+        change: -2,
+        level: 22,
+    },
+    {
+        rank: 7,
+        reviews: 221,
+        accuracy: 90,
+        streak: 17,
+        change: 1,
+        level: 21,
+    },
+];
 
 export function Leaderboard() {
 const [members, setMembers] = useState<LeaderboardEntry[] | null>(null);
@@ -24,10 +77,8 @@ const [activeTab, setActiveTab] = useState<string>("overall");
  const { user, isAuthenticated } = useAuth0();
 const [username, setUsername] = useState<string | null>(null);
 
-
 const fetchLeaderboard = async (type: string) => {
   //  setMembers(null);
-
 
     try {
       const res = await fetch(`/api/users?type=${type}`);
@@ -162,9 +213,9 @@ useEffect(() => {
                                 <Text c="green.5" fw={700} fz={24}>
                                     {members?.[1].score}
                                 </Text>
-                                {/*<Badge color="gray" variant="light">*/}
-                                {/*  /!*Level {members[1].level}*!/*/}
-                                {/*</Badge>*/}
+                                <Badge color="gray" variant="light">
+                                  Level {leaderboardData[1].level}
+                                </Badge>
                             </Stack>
 
                             {/* First Place */}
@@ -186,9 +237,9 @@ useEffect(() => {
                                 <Text c="green.5" fw={700} fz={32}>
                                     {members?.[0].score}
                                 </Text>
-                                {/*<Badge color="yellow" variant="light">*/}
-                                {/*  /!*Level {members[0].level}*!/*/}
-                                {/*</Badge>*/}
+                                <Badge color="yellow" variant="light">
+                                  Level {leaderboardData[0].level}
+                                </Badge>
                             </Stack>
 
                             {/* Third Place */}
@@ -210,9 +261,9 @@ useEffect(() => {
                                 <Text c="green.5" fw={700} fz={24}>
                                     {members?.[2].score}
                                 </Text>
-                                {/*<Badge color="orange" variant="light">*/}
-                                {/*  Level {leaderboardData[2].level}*/}
-                                {/*</Badge>*/}
+                                <Badge color="orange" variant="light">
+                                  Level {leaderboardData[2].level}
+                                </Badge>
                             </Stack>
 
                         </Flex>
@@ -248,7 +299,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score"].map((h) => (
+                                            {["Rank", "User", "Score", "Reviews", "Accuracy", "Streak", "Change"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
@@ -290,7 +341,9 @@ useEffect(() => {
                                                                 )}
                                                             </Text>
                                                             <Text c="dimmed" fz="xs">
-                                                                {/*Level {user.level}*/}
+                                                                 {index + 1 === leaderboardData[index].rank && (
+                                                            <> {"level " + leaderboardData[index].level}</>
+                                                          )}
                                                             </Text>
                                                         </div>
                                                     </Group>
@@ -300,29 +353,41 @@ useEffect(() => {
                                                     <Text c="green.5">{member.score.toLocaleString()}</Text>
                                                 </Table.Td>
 
-                                                {/*<Table.Td>*/}
-                                                {/*    /!*<Text c="gray.4">{user.reviews}</Text>*!/*/}
-                                                {/*</Table.Td>*/}
+                                                <Table.Td>
 
-                                                {/*<Table.Td>*/}
-                                                {/*    /!*<Text c="gray.4">{user.accuracy}%</Text>*!/*/}
-                                                {/*</Table.Td>*/}
+                                                    <Text c="gray.4">
+                                                       {index + 1 === leaderboardData[index].rank && (
+                                                            <>{leaderboardData[index].reviews}</>
+                                                          )}
+                                                    </Text>
+                                                </Table.Td>
+
+                                                <Table.Td>
+
+                                                    <Text c="gray.4">
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <>{leaderboardData[index].accuracy}</>
+                                                          )}
+                                                    </Text>
+                                                </Table.Td>
 
                                                 <Table.Td>
                                                     <Badge color="orange" variant="light">
-                                                        {/*🔥 {user.streak}*/}
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <>🔥 {leaderboardData[index].streak}</>
+                                                          )}
                                                     </Badge>
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    {/*<Group gap={4}>*/}
-                                                    {/*    /!*{getTrendIcon(user.change)}*!/*/}
-                                                    {/*    /!*{user.change !== 0 && (*!/*/}
-                                                    {/*    /!*    <Text c={user.change > 0 ? "green" : "red"}>*!/*/}
-                                                    {/*    /!*        {Math.abs(user.change)}*!/*/}
-                                                    {/*    /!*    </Text>*!/*/}
-                                                    {/*    )}*/}
-                                                    {/*</Group>*/}
+                                                    <Group gap={4}>
+                                                        {getTrendIcon(1)}
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <Text c={leaderboardData[index].change > 0 ? "green" : "red"}>
+                                                                {Math.abs(leaderboardData[index].change)}
+                                                            </Text>
+                                                        )}
+                                                    </Group>
                                                 </Table.Td>
                                             </Table.Tr>
                                         ))}
@@ -339,7 +404,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score"].map((h) => (
+                                            {["Rank", "User", "Score", "Reviews", "Accuracy", "Streak", "Change"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
@@ -380,7 +445,9 @@ useEffect(() => {
                                                                 )}
                                                             </Text>
                                                             <Text c="dimmed" fz="xs">
-                                                                {/*Level {user.level}*/}
+                                                                 {index + 1 === leaderboardData[index].rank && (
+                                                            <> {"level " + leaderboardData[index].level}</>
+                                                          )}
                                                             </Text>
                                                         </div>
                                                     </Group>
@@ -390,29 +457,40 @@ useEffect(() => {
                                                     <Text c="green.5">{member.score.toLocaleString()}</Text>
                                                 </Table.Td>
 
-                                                {/*<Table.Td>*/}
-                                                {/*    /!*<Text c="gray.4">{user.reviews}</Text>*!/*/}
-                                                {/*</Table.Td>*/}
+                                                <Table.Td>
+                                                   <Text c="gray.4">
+                                                       {index + 1 === leaderboardData[index].rank && (
+                                                            <>{leaderboardData[index].reviews}</>
+                                                          )}
+                                                    </Text>
+                                                </Table.Td>
 
-                                                {/*<Table.Td>*/}
-                                                {/*    /!*<Text c="gray.4">{user.accuracy}%</Text>*!/*/}
-                                                {/*</Table.Td>*/}
+                                                <Table.Td>
+                                                   <Text c="gray.4">
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <>{leaderboardData[index].accuracy}</>
+                                                          )}
+                                                    </Text>
+                                                </Table.Td>
 
                                                 <Table.Td>
                                                     <Badge color="orange" variant="light">
-                                                        {/*🔥 {user.streak}*/}
+                                                          {index + 1 === leaderboardData[index].rank && (
+                                                            <>🔥 {leaderboardData[index].streak}</>
+                                                          )}
                                                     </Badge>
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    {/*<Group gap={4}>*/}
-                                                    {/*    /!*{getTrendIcon(user.change)}*!/*/}
-                                                    {/*    /!*{user.change !== 0 && (*!/*/}
-                                                    {/*    /!*    <Text c={user.change > 0 ? "green" : "red"}>*!/*/}
-                                                    {/*    /!*        {Math.abs(user.change)}*!/*/}
-                                                    {/*    /!*    </Text>*!/*/}
-                                                    {/*    )}*/}
-                                                    {/*</Group>*/}
+                                                    <Group gap={4}>
+
+                                                        {getTrendIcon(1)}
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <Text c={leaderboardData[index].change > 0 ? "green" : "red"}>
+                                                                {Math.abs(leaderboardData[index].change)}
+                                                            </Text>
+                                                        )}
+                                                    </Group>
                                                 </Table.Td>
                                             </Table.Tr>
                                         ))}
@@ -428,7 +506,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score"].map((h) => (
+                                            {["Rank", "User", "Score", "Reviews", "Accuracy", "Streak", "Change"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
@@ -451,7 +529,7 @@ useEffect(() => {
                                             >
                                                 <Table.Td>
                                                     {getRankIcon(index + 1)}
-                                                    {/*{getRankIcon(user.rank)}*/}
+                                                    {/*{getRankIcon(member.rank)}*/}
                                                 </Table.Td>
 
                                                 <Table.Td>
@@ -469,7 +547,9 @@ useEffect(() => {
                                                                 )}
                                                             </Text>
                                                             <Text c="dimmed" fz="xs">
-                                                                {/*Level {user.level}*/}
+                                                                 {index + 1 === leaderboardData[index].rank && (
+                                                                    <> {"level " + leaderboardData[index].level}</>
+                                                                  )}
                                                             </Text>
                                                         </div>
                                                     </Group>
@@ -479,29 +559,40 @@ useEffect(() => {
                                                     <Text c="green.5">{member.score.toLocaleString()}</Text>
                                                 </Table.Td>
 
-                                                {/*<Table.Td>*/}
-                                                {/*    /!*<Text c="gray.4">{user.reviews}</Text>*!/*/}
-                                                {/*</Table.Td>*/}
+                                                <Table.Td>
+                                                   <Text c="gray.4">
+                                                       {index + 1 === leaderboardData[index].rank && (
+                                                            <>{leaderboardData[index].reviews}</>
+                                                          )}
+                                                    </Text>
+                                                </Table.Td>
 
-                                                {/*<Table.Td>*/}
-                                                {/*    /!*<Text c="gray.4">{user.accuracy}%</Text>*!/*/}
-                                                {/*</Table.Td>*/}
+                                                <Table.Td>
+                                                   <Text c="gray.4">
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <>{leaderboardData[index].accuracy}</>
+                                                          )}
+                                                    </Text>
+                                                </Table.Td>
 
                                                 <Table.Td>
                                                     <Badge color="orange" variant="light">
-                                                        {/*🔥 {user.streak}*/}
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <>🔥 {leaderboardData[index].streak}</>
+                                                          )}
                                                     </Badge>
                                                 </Table.Td>
 
                                                 <Table.Td>
-                                                    {/*<Group gap={4}>*/}
-                                                    {/*    /!*{getTrendIcon(user.change)}*!/*/}
-                                                    {/*    /!*{user.change !== 0 && (*!/*/}
-                                                    {/*    /!*    <Text c={user.change > 0 ? "green" : "red"}>*!/*/}
-                                                    {/*    /!*        {Math.abs(user.change)}*!/*/}
-                                                    {/*    /!*    </Text>*!/*/}
-                                                    {/*    )}*/}
-                                                    {/*</Group>*/}
+                                                    <Group gap={4}>
+
+                                                       {getTrendIcon(1)}
+                                                        {index + 1 === leaderboardData[index].rank && (
+                                                            <Text c={leaderboardData[index].change > 0 ? "green" : "red"}>
+                                                                {Math.abs(leaderboardData[index].change)}
+                                                            </Text>
+                                                        )}
+                                                    </Group>
                                                 </Table.Td>
                                             </Table.Tr>
                                         ))}

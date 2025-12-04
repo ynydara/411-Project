@@ -131,7 +131,7 @@ interface RecentReview {
 interface StatCard {
   label: string;
   value: string;
-  // trend: string;
+  trend: string;
   icon: LucideIcon;
   color: MantineColor;
 }
@@ -225,28 +225,28 @@ const DEFAULT_STATS: StatCard[] = [
   {
     label: "Reviews This Week",
     value: "0",
-    // trend: "+0%",
+    trend: "+0%",
     icon: GitPullRequest,
     color: "green",
   },
   {
     label: "Avg Review Score",
     value: "0",
-    // trend: "+0%",
+    trend: "+0%",
     icon: TrendingUp,
     color: "green",
   },
   {
     label: "Comments Made",
     value: "0",
-    // trend: "+0%",
+    trend: "+0%",
     icon: MessageSquare,
     color: "green",
   },
   {
     label: "Code Quality",
     value: "0%",
-    // trend: "+0%",
+    trend: "+0%",
     icon: Code2,
     color: "green",
   },
@@ -483,27 +483,28 @@ setCommentList(commentItems);
           {
             label: "Reviews This Week",
             value: reviewsThisWeek.toString(),
-            // trend: reviewsThisWeek > 0 ? "+12%" : "+0%",
+            trend: reviewsThisWeek > 0 ? "+12%" : "+0%",
             icon: GitPullRequest,
             color: "green",
           },
           {
             label: "Avg Review Score",
             value: avgReviewScore.toString(),
-            // trend: avgReviewScore > 0 ? "+5%" : "+0%",
+            trend: avgReviewScore > 0 ? "+5%" : "+0%",
             icon: TrendingUp,
             color: "green",
           },
           {
               label: "Comments Made",
               value: commentsMade.toString(),
+              trend: avgReviewScore >0 ? "+3%" : "+0%",
               icon: MessageSquare,
               color: "green",
           },
           {
             label: "Code Quality",
             value: `${codeQuality}%`,
-            // trend: codeQuality > 0 ? "+3%" : "+0%",
+            trend: codeQuality > 0 ? "+3%" : "+0%",
             icon: Code2,
             color: "green",
           },
@@ -604,9 +605,9 @@ setCommentList(commentItems);
 {/*  withBorder*/}
 {/*  style={{ backgroundColor: "#161b22", borderColor: "#30363d" }}*/}
 {/*>*/}
-{/*  /!*<Title order={3} c="white" mb="md">*!/*/}
-{/*  /!*  Your GitHub Comments*!/*/}
-{/*  /!*</Title>*!/*/}
+{/*  <Title order={3} c="white" mb="md">*/}
+{/*    Your GitHub Comments*/}
+{/*  </Title>*/}
 
 {/*  {commentList.length === 0 ? (*/}
 {/*    <Text c="gray.5" size="sm">No GitHub comments found.</Text>*/}
@@ -655,9 +656,9 @@ setCommentList(commentItems);
                     <ThemeIcon size={36} radius="xl" variant="transparent" color="gray">
                       <IconWrapper icon={Icon} size={20} />
                     </ThemeIcon>
-                    {/*<Badge color={stat.color} variant="light">*/}
-                    {/*  {stat.trend}*/}
-                    {/*</Badge>*/}
+                    <Badge color={stat.color} variant="light">
+                      {stat.trend}
+                    </Badge>
                   </Group>
                   <Text size="xl" fw={700} c="white" mb={4}>
                     {stat.value}
