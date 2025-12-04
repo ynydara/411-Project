@@ -11,7 +11,6 @@ interface Achievement {
   icon: React.FC<{ size?: number }>;
   earned: boolean;
   rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
-  progress: number;
   earnedDate?: string;
   max?: number;
   current?: number;
@@ -34,9 +33,8 @@ const [userPoints, setUserPoints] = useState<number>(0);
       name: "First Review",
       description: "Complete your first code review",
       icon: ({ size = 20 }) => <IconWrapper icon={LuStar} size={size} />,
-      earned: true,
+      earned: false,
       rarity: "common",
-      progress: 100,
         points: 1,
 
     },
@@ -47,7 +45,7 @@ const [userPoints, setUserPoints] = useState<number>(0);
       icon: ({ size = 20 }) => <IconWrapper icon={LuFlame} size={size} />,
       earned: false,
       rarity: "rare",
-      progress: 100,
+        max: 200,
         points: 5,
     },
     {
@@ -55,9 +53,8 @@ const [userPoints, setUserPoints] = useState<number>(0);
       name: "Century Club",
       description: "Complete 100 code reviews",
       icon: ({ size = 20 }) => <IconWrapper icon={LuTrophy} size={size} />,
-      earned: true,
+      earned: false,
       rarity: "epic",
-      progress: 100,
       earnedDate: "2025-11-02",
         points: 1,
     },
@@ -68,9 +65,7 @@ const [userPoints, setUserPoints] = useState<number>(0);
       icon: ({ size = 20 }) => <IconWrapper icon={LuTarget} size={size} />,
       earned: false,
       rarity: "rare",
-      progress: 68,
-      max: 50,
-      current: 34,
+      max: 600,
         points: 10,
     },
     {
@@ -78,9 +73,8 @@ const [userPoints, setUserPoints] = useState<number>(0);
       name: "Lightning Fast",
       description: "Complete a review in under 5 minutes",
       icon: ({ size = 20 }) => <IconWrapper icon={LuZap} size={size} />,
-      earned: true,
+      earned: false,
       rarity: "uncommon",
-      progress: 100,
       earnedDate: "2025-10-20",
         points: 10,
     },
@@ -91,21 +85,17 @@ const [userPoints, setUserPoints] = useState<number>(0);
       icon: ({ size = 20 }) => <IconWrapper icon={LuAward} size={size} />,
       earned: false,
       rarity: "epic",
-      progress: 45,
-      max: 30,
-      current: 13,
+      max: 3000,
         points: 50,
     },
     {
       id: 7,
-      name: "Code Connoisseur",
-      description: "Review 1000 lines of code",
+      name: "Ultimate Coder",
+      description: "Gain 10000000 points",
       icon: ({ size = 20 }) => <IconWrapper icon={LuCrown} size={size} />,
       earned: false,
       rarity: "legendary",
-      progress: 0,
-      max: 1000,
-      current: 0,
+      max: 10000000,
         points: 20,
     },
     {
@@ -115,7 +105,6 @@ const [userPoints, setUserPoints] = useState<number>(0);
       icon: ({ size = 20 }) => <IconWrapper icon={LuMedal} size={size} />,
       earned: false,
       rarity: "uncommon",
-      progress: 100,
         points: 100,
     },
     {
@@ -125,9 +114,7 @@ const [userPoints, setUserPoints] = useState<number>(0);
       icon: ({ size = 20 }) => <IconWrapper icon={LuSparkles} size={size} />,
       earned: false,
       rarity: "rare",
-      progress: 86,
       max: 50,
-      current: 43,
         points: 3,
     },
   ];
@@ -153,16 +140,20 @@ const achievementsWithEarned = useMemo(() => {
   return achievements.map(a => {
     // Calculate if earned
     let earned = a.earned;
+    if (a.name === "First Review") earned = userPoints >= 1;
     if (a.name === "200 points") earned = userPoints >= 200;
     if (a.name === "600 points") earned = userPoints >= 600;
     if (a.name === "Quality Expert") earned = userPoints >=4000;
+    if (a.name === "Ultimate Coder") earned = userPoints >= 10000000;
 
     let earnedDate = a.earnedDate;
     if (earned && !earnedDate) {
       earnedDate = today;
     }
 
-    return { ...a, earned, earnedDate };
+    const current = userPoints;
+
+    return { ...a, earned, earnedDate, current };
   });
 }, [userPoints, achievements]);
 
@@ -330,11 +321,9 @@ const stats = {
                         <Text size="xs" c="dimmed">
                           {achievement.current ?? 0} / {achievement.max ?? 100}
                         </Text>
-                        <Text size="xs" c="dimmed">
-                          {achievement.progress}%
-                        </Text>
+
                       </Group>
-                      <Progress value={achievement.progress} color={color} size="sm" />
+
                     </Box>
                   )}
                 </Card>
