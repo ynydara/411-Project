@@ -3,6 +3,7 @@ import {LuTrophy, LuStar, LuZap, LuTarget, LuAward, LuLock, LuFlame, LuCrown, Lu
 import "./App.css";
 import {useEffect, useMemo, useState} from "react";
 import {useAuth0} from "@auth0/auth0-react";
+import {updateUserScores} from "./Dashboard";
 
 interface Achievement {
   id: number;
@@ -13,8 +14,30 @@ interface Achievement {
   rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
   earnedDate?: string;
   max?: number;
+  maxPR?: number;
   current?: number;
+  PRCount?: number;
   points?: number;
+}
+interface GithubUser {
+  login: string;
+  avatar_url: string | null;
+}
+
+interface GithubSearchResponse {
+  total_count?: number;
+  items: GithubPR[];
+}
+
+interface GithubPR {
+  id: number;
+  number: number;
+  title: string;
+  created_at: string;
+  // comments: number;
+  user: GithubUser;
+  html_url: string;
+  commentData?: Array<{ id: number; body: string; user: GithubUser }>;
 }
 
 const IconWrapper = ({ icon: Icon, size = 24 }: { icon: any; size?: number }) => <Icon size={size} />;
@@ -24,8 +47,11 @@ export function Achievements() {
 
  const { user, isAuthenticated } = useAuth0();
 const [userPoints, setUserPoints] = useState<number>(0);
+const [prCount, setPrCount] = useState<number>(0);
   const [topMembers, setTopMembers] = useState<LeaderboardEntry[] | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
+  const [reviewsThisWeek, setReviewsThisWeek] = useState<number>(0);
+
 
   const achievements: Achievement[] = [
     {
@@ -50,12 +76,11 @@ const [userPoints, setUserPoints] = useState<number>(0);
     },
     {
       id: 3,
-      name: "Century Club",
-      description: "Complete 100 code reviews",
+      name: "First PR",
+      description: "Have 1 PR be reviewed by our AI",
       icon: ({ size = 20 }) => <IconWrapper icon={LuTrophy} size={size} />,
       earned: false,
-      rarity: "epic",
-      earnedDate: "2025-11-02",
+      rarity: "common",
         points: 1,
     },
     {
@@ -70,12 +95,12 @@ const [userPoints, setUserPoints] = useState<number>(0);
     },
     {
       id: 5,
-      name: "Lightning Fast",
-      description: "Complete a review in under 5 minutes",
+      name: "OMEGA",
+      description: "Have 3 PRs be reviewed by our AI",
       icon: ({ size = 20 }) => <IconWrapper icon={LuZap} size={size} />,
       earned: false,
       rarity: "uncommon",
-      earnedDate: "2025-10-20",
+        maxPR: 3,
         points: 10,
     },
     {
@@ -100,21 +125,22 @@ const [userPoints, setUserPoints] = useState<number>(0);
     },
     {
       id: 8,
-      name: "Negative score",
-      description: "somehow achieve a negative score",
+      name: "AI Whisperer",
+      description: "have 100 PRs be reviewed by our AI",
       icon: ({ size = 20 }) => <IconWrapper icon={LuMedal} size={size} />,
       earned: false,
-      rarity: "uncommon",
+      rarity: "legendary",
+        maxPR: 100,
         points: 100,
     },
     {
       id: 9,
-      name: "AI Whisperer",
-      description: "Accept 50 AI suggestions",
+      name: "4 Prs",
+      description: "Have 4 Prs be reviewed by our AI",
       icon: ({ size = 20 }) => <IconWrapper icon={LuSparkles} size={size} />,
       earned: false,
       rarity: "rare",
-      max: 50,
+      maxPR: 4,
         points: 3,
     },
   ];
@@ -146,14 +172,24 @@ const achievementsWithEarned = useMemo(() => {
     if (a.name === "Quality Expert") earned = userPoints >=4000;
     if (a.name === "Ultimate Coder") earned = userPoints >= 10000000;
 
+    if (a.name === "First PR") earned = reviewsThisWeek >= 1;
+    if (a.name === "OMEGA") earned = reviewsThisWeek >= 3;
+    if (a.name === "4 Prs") earned = reviewsThisWeek >= 4;
+    if (a.name === "AI Whisperer") earned = reviewsThisWeek >= 100;
+
     let earnedDate = a.earnedDate;
     if (earned && !earnedDate) {
       earnedDate = today;
     }
 
-    const current = userPoints;
+    const current = a.maxPR !== undefined ? reviewsThisWeek : userPoints;
+    const displayMax = a.maxPR ?? a.max ?? 100;
 
-    return { ...a, earned, earnedDate, current };
+    // const PRCount = reviewsThisWeek
+    //   console.log(PRCount);
+    // const current = userPoints;
+
+    return { ...a, earned, earnedDate, current, displayMax };
   });
 }, [userPoints, achievements]);
 
@@ -182,6 +218,54 @@ const stats = {
     };
     fetchUser();
   }, []);
+
+
+    useEffect(() => {
+        if (!isAuthenticated || !user) return;
+
+  async function load() {
+      try {
+
+          const username = (user as any).nickname;
+          if (!username) {
+              return;
+          }
+
+          const scoreRes = await updateUserScores(username);
+
+          console.log("Updated scores:", scoreRes);
+
+          const prsRes = await fetch(`/api/github/user/prs?username=${encodeURIComponent(username)}`);
+
+
+          const commentsRes = await fetch(`/api/github/user/prs/comments?username=${encodeURIComponent(username)}`);
+
+          if (!prsRes.ok) {
+              const text = await prsRes.text();
+              throw new Error(`Failed to fetch PRs: ${prsRes.status} ${text}`);
+          }
+
+          if (!commentsRes.ok) {
+              const text = await commentsRes.text();
+              throw new Error(`failed to fetch comments': ${commentsRes.status} ${text}`);
+          }
+
+          const prsJson = (await prsRes.json()) as GithubSearchResponse;
+          const prItems: GithubPR[] = prsJson.items ?? [];
+          const topPrs = prItems.slice(0, 4);
+            setReviewsThisWeek(topPrs.length);
+            console.log("Reviews this week:", topPrs.length);
+
+
+          //const reviewsThisWeek = topPrs.length;
+          //console.log(reviewsThisWeek);
+      }
+      catch (err){
+      console.error(err);
+        }
+  }
+           void load();
+    }, [isAuthenticated, user]);
 
 
 
@@ -319,7 +403,8 @@ const stats = {
                     <Box>
                       <Group justify="space-between" mb={4}>
                         <Text size="xs" c="dimmed">
-                          {achievement.current ?? 0} / {achievement.max ?? 100}
+                          {achievement.current ?? 0} / {achievement.displayMax}
+
                         </Text>
 
                       </Group>
@@ -334,4 +419,5 @@ const stats = {
       </Container>
     </Box>
   );
-}
+  }
+

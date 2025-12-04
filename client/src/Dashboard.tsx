@@ -68,6 +68,7 @@ interface AiAnalysisData {
   constructiveness_score: number;
   suggestions: string[];
   confidence: number;
+  score?: number;
 }
 
 interface AiAnalyzeResponse {
@@ -95,7 +96,7 @@ interface GithubPR {
   number: number;
   title: string;
   created_at: string;
-  // comments: number;
+  comments: number;
   user: GithubUser;
   html_url: string;
   commentData?: Array<{ id: number; body: string; user: GithubUser }>;
@@ -130,7 +131,7 @@ interface RecentReview {
 interface StatCard {
   label: string;
   value: string;
-  trend: string;
+  // trend: string;
   icon: LucideIcon;
   color: MantineColor;
 }
@@ -224,28 +225,28 @@ const DEFAULT_STATS: StatCard[] = [
   {
     label: "Reviews This Week",
     value: "0",
-    trend: "+0%",
+    // trend: "+0%",
     icon: GitPullRequest,
     color: "green",
   },
   {
     label: "Avg Review Score",
     value: "0",
-    trend: "+0%",
+    // trend: "+0%",
     icon: TrendingUp,
     color: "green",
   },
   {
     label: "Comments Made",
     value: "0",
-    trend: "+0%",
+    // trend: "+0%",
     icon: MessageSquare,
     color: "green",
   },
   {
     label: "Code Quality",
     value: "0%",
-    trend: "+0%",
+    // trend: "+0%",
     icon: Code2,
     color: "green",
   },
@@ -295,9 +296,6 @@ useEffect(() => {
     try {
       setLoadingData(true);
       setLoadError(null);
-
-
-
 
       const username = (user as any).nickname;
       if (!username) {
@@ -474,10 +472,10 @@ setCommentList(commentItems);
         ? Math.round(reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length)
         : 0;
 
-      // const commentsMade = prItems.reduce(
-      //   (sum, pr) => sum + (pr.comments || 0),
-      //   0
-      // );
+      const commentsMade = prItems.reduce(
+        (sum, pr) => sum + (pr.comments || 0),
+         0
+       );
 
       const codeQuality = avgReviewScore;
 
@@ -485,28 +483,27 @@ setCommentList(commentItems);
           {
             label: "Reviews This Week",
             value: reviewsThisWeek.toString(),
-            trend: reviewsThisWeek > 0 ? "+12%" : "+0%",
+            // trend: reviewsThisWeek > 0 ? "+12%" : "+0%",
             icon: GitPullRequest,
             color: "green",
           },
           {
             label: "Avg Review Score",
             value: avgReviewScore.toString(),
-            trend: avgReviewScore > 0 ? "+5%" : "+0%",
+            // trend: avgReviewScore > 0 ? "+5%" : "+0%",
             icon: TrendingUp,
             color: "green",
           },
-          // {
-          //   label: "Comments Made",
-          //   // value: commentsMade.toString(),
-          //   // trend: commentsMade > 0 ? "+8%" : "+0%",
-          //   icon: MessageSquare,
-          //   color: "green",
-          // },
+          {
+              label: "Comments Made",
+              value: commentsMade.toString(),
+              icon: MessageSquare,
+              color: "green",
+          },
           {
             label: "Code Quality",
             value: `${codeQuality}%`,
-            trend: codeQuality > 0 ? "+3%" : "+0%",
+            // trend: codeQuality > 0 ? "+3%" : "+0%",
             icon: Code2,
             color: "green",
           },
@@ -658,9 +655,9 @@ setCommentList(commentItems);
                     <ThemeIcon size={36} radius="xl" variant="transparent" color="gray">
                       <IconWrapper icon={Icon} size={20} />
                     </ThemeIcon>
-                    <Badge color={stat.color} variant="light">
-                      {stat.trend}
-                    </Badge>
+                    {/*<Badge color={stat.color} variant="light">*/}
+                    {/*  {stat.trend}*/}
+                    {/*</Badge>*/}
                   </Group>
                   <Text size="xl" fw={700} c="white" mb={4}>
                     {stat.value}
@@ -841,7 +838,7 @@ setCommentList(commentItems);
               <Stack gap="4px">
                 <Group align="center" gap="xs">
                   <Text c="gray.5" size="sm">
-                    {`${statCards[0]?.value ?? "0"} / 30 reviews`}
+                    {`${statCards[0]?.value ?? "0"} / 30 PR reviews`}
                   </Text>
                   <Text c="green" size="sm">
                     {Math.min(
