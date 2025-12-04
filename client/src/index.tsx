@@ -5,6 +5,7 @@ import reportWebVitals from './reportWebVitals';
 import { MantineProvider } from '@mantine/core';
 import { Auth0Provider } from '@auth0/auth0-react';
 import {parse as yamlParse} from "yaml";
+import '@mantine/core/styles.css';
 import config from './env.json';
 import "./App.css";
 
@@ -27,6 +28,8 @@ root.render(
                 clientId={clientId}
                 authorizationParams={{
                     redirect_uri: window.location.origin,
+                    connection: "GitHub",
+                    scope:"openid profile email read:user repo user:email",
                 }}
             >
                 <App />

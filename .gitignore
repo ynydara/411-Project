@@ -1,9 +1,10 @@
 /flask-server/node_modules/
 /node_modules/
-flask-server/Ai/GITHUB_TOKEN.env
+GITHUB_TOKEN.env
 *.cfg
 *.h
 .venv/Lib/site-packages/torch/include/torch/csrc/distributed/c10d/Backend.hpp
 *.hpp
 .venv
 client/src/env.json
+*.env

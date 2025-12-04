@@ -108,8 +108,26 @@ body {
   padding: 0 50px;
 }
 
+.earned-card {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  transition: border-color .2s ease;
+}
 
+.earned-card:hover {
+  border-color: #16a34a;
+}
 
+.locked-card {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  opacity: .6;
+  transition: border-color .2s ease;
+}
+
+.locked-card:hover {
+  border-color: #30363d;
+}
 
 @keyframes App-logo-spin {
   from {

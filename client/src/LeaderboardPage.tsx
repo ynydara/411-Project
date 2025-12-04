@@ -120,7 +120,7 @@ function LeaderboardPage() {
   );
 
   return (
-    <div style={{ padding: "2rem", height: "100vh" }}>
+    <div style={{ height: "100vh" }}>
       <Tabs
         value={activeTab}
         onChange={(val) => setActiveTab(val!)}

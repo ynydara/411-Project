@@ -8,7 +8,7 @@ WORKDIR /app
 COPY --link package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
-
+RUN npm install lucide-react
 COPY --link public ./public
 COPY --link src ./src
 COPY --link tsconfig.json ./tsconfig.json

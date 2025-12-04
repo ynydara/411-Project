@@ -113,7 +113,7 @@ function DashboardPage() {
 
     // @ts-ignore
     return user ? (
-    <div style={{ padding: "2rem"}}>
+    <div>
         <Title order={1} ta="center" >
             Welcome back, {user.name}!
         </Title>

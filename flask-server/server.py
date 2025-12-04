@@ -5,6 +5,7 @@ from flask_cors import CORS
 import traceback
 # import jose import jwt
 import requests
+import os
 
 
 # run this only once pls
@@ -590,47 +591,229 @@ def settings():
     return "Settings"
 
 
-# ai_url = "http://ai-service:8000"
-ai_url = "http://ai-service:8000/api"
 
-@app.route('/api/analyze', methods=['POST'])
-def analyze():
-    data = request.json
-    if not data:
-        return jsonify({"error": "no JSON body received"}), 400
+AI_SERVICE_URL = "http://ai-service:8000/api"
+GITHUB_API = "https://api.github.com"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+def github_get(endpoint: str, token: str | None = None):
+    # Default to app-level PAT
+    if token is None:
+        token = GITHUB_TOKEN
+
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     try:
-        resp = requests.post(f"{ai_url}/analyze", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
-        print("ERROR in /api/analyze:", str(e))
+        r = requests.get(f"{GITHUB_API}{endpoint}", headers=headers, timeout=30)
+    except Exception as e:
+        # Network or request error → 500 from our API
+        print("GitHub request failed:", e)
+        return None, {"error": "request_failed", "detail": str(e)}
+
+    try:
+        data = r.json()
+    except ValueError:
+        # Not JSON (e.g. HTML error page)
+        print("GitHub returned non-JSON:", r.status_code, r.text[:200])
+        return None, {
+            "error": "invalid_json",
+            "status": r.status_code,
+            "text": r.text,
+        }
+
+    if r.status_code != 200:
+        print("GitHub API error:", r.status_code, data)
+        return None, {"status": r.status_code, "body": data}
+
+    return data, None
+
+
+@app.route("/api/github/user/prs")
+def get_user_prs():
+    """
+    Get PRs for a given GitHub username.
+    Uses app-level PAT (GITHUB_TOKEN) and a query param ?username=
+    """
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token=None,  # force use of PAT
+    )
+
+    if err:
+        # Bubble up the GitHub error so you can see it in the browser
+        return jsonify({"error": "Failed to fetch PRs", "details": err}), 500
+
+    return jsonify(prs)
+# ---------------------- REPO PRs -------------------------
+@app.route("/api/github/repos/<owner>/<repo>/prs")
+def get_repo_prs(owner, repo):
+    auth = request.headers.get("Authorization")
+    if not auth:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = auth.replace("Bearer ", "")
+    prs, err = github_get(f"/repos/{owner}/{repo}/pulls", token)
+
+    if err:
+        return jsonify({"error": "Failed to fetch repo PRs", "details": err}), 400
+
+    return jsonify(prs)
+
+
+# ---------------------- PR DETAILS ------------------------
+@app.route("/api/github/pr/<owner>/<repo>/<int:number>")
+def get_pr_details(owner, repo, number):
+    auth = request.headers.get("Authorization")
+    if not auth:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = auth.replace("Bearer ", "")
+
+    pr, err = github_get(f"/repos/{owner}/{repo}/pulls/{number}", token)
+    if err:
+        return jsonify({"error": "Failed to fetch PR", "details": err}), 400
+
+    files, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{number}/files", token)
+    if err2:
+        return jsonify({"error": "Failed to fetch PR files", "details": err2}), 400
+
+    return jsonify({"pr": pr, "files": files})
+
+
+def compute_score(sentiment: str, constructiveness: float) -> int:
+    """Compute score based on rubric."""
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0,
+    }.get((sentiment or "").lower(), 0.5)
+
+    # Weighted combo: 60% constructiveness, 40% sentiment
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+
+    # DB expects int
+    return int(round(score))
+
+
+@app.route("/api/analyze", methods=["POST"])
+def analyze():
+    try:
+        data = request.get_json(force=True) or {}
+        print("Incoming /api/analyze payload:", data)
+
+        # Who are we scoring for?
+        user_id = data.get("user_id")  # optional
+        github_id = data.get("githubId") or data.get("github_id")
+
+        content = data.get("content")
+        analysis_type = data.get("type", "text")
+
+        if not content:
+            return jsonify({"error": "Missing content"}), 400
+
+        # Payload for AI-service
+        payload = {"type": analysis_type, "content": content, "file": data.get("file", "unknown")}
+
+        # ------------------ Call AI service ------------------
+        try:
+            resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
+            resp.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print("Error contacting AI service:", e)
+            if getattr(e, "response", None) is not None:
+                try:
+                    print("AI error response text:", e.response.text)
+                except Exception:
+                    pass
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+
+        # ------------------ Parse AI response ------------------
+        try:
+            result = resp.json()
+        except ValueError:
+            print("Invalid JSON from AI service:", resp.text)
+            traceback.print_exc()
+            return jsonify({"error": "Invalid JSON from AI service"}), 500
+
+        print("AI Service response:", result)
+
+        # Our ai-service returns { model, success, data: {...}, insight: {...} }
+        analysis = result.get("data") or {}
+        sentiment = analysis.get("sentiment", "neutral")
+
+        raw_construct = analysis.get("constructiveness_score", 0.5)
+        try:
+            constructiveness = float(raw_construct)
+        except (TypeError, ValueError):
+            constructiveness = 0.5
+
+        score = compute_score(sentiment, constructiveness)
+
+        # Attach score so frontend can see it
+        analysis["score"] = score
+        result["data"] = analysis
+
+        # ------------------ Update DB (code_score) ------------------
+        resolved_user_id = None
+
+        if user_id is not None:
+            resolved_user_id = user_id
+        elif github_id:
+            conn = getdbconnection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT id FROM users WHERE githubId = %s;", (github_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        resolved_user_id = row[0]
+            finally:
+                conn.close()
+
+        if resolved_user_id is not None:
+            conn = getdbconnection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE users
+                        SET code_score = code_score + %s
+                        WHERE id = %s
+                        RETURNING id, code_score;
+                        """,
+                        (score, resolved_user_id),
+                    )
+                    updated = cursor.fetchone()
+                    if not updated:
+                        conn.rollback()
+                        print("No user row found for id:", resolved_user_id)
+                    else:
+                        conn.commit()
+                        print("Updated user code_score:", updated)
+            finally:
+                conn.close()
+        else:
+            print("No user_id / githubId resolved; skipping DB update")
+
+        # Return AI result (with score in data) to frontend
+        return jsonify(result)
+
+    except Exception as e:
+        print("Unhandled exception in /api/analyze:", e)
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/classify', methods=['POST'])
-def classify_route():
-    data = request.json  # { "text": "some PR description" }
-    try:
-        resp = requests.post(f"{ai_url}/classify", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-        # send AI's response back to frontend
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+@app.route("/health")
+def health():
+    return {"status": "ok"}
 
 
-@app.route('/api/review', methods=['POST'])
-def review():
-    data = request.json
-
-    try:
-        resp = requests.post(f"{ai_url}/review", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
