@@ -78,7 +78,8 @@ def analyze(payload: AnalysisRequest):
 
 def build_prompt(data_type: str, content: str, file: str = "unknown") -> str:
     return f"""
-You are an AI that analyzes GitHub {data_type}s.
+You are an AI that analyzes GitHub {data_type}s. Pr's, and Comments. Please give us explanations of PR reviews and
+how to better right PR's/ Handle issues. Look at code syntax for error analysis on code basis in PR's.
 
 Return ONLY valid JSON in exactly this schema and value ranges:
 
