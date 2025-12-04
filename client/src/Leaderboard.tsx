@@ -100,7 +100,18 @@ useEffect(() => {
 
 
     //if (!isAuthenticated) return <Text c="black">Please log in</Text>;
-  if (!members) return <Text c="white">Loading...</Text>;
+  if (!members){
+
+      return (
+    <Box bg="#0d1117" style={{ minHeight: "100vh", padding: 32 }}>
+      <Container size="lg">
+        <Text c="white" fz="lg">
+          Loading leaderboard...
+        </Text>
+      </Container>
+    </Box>
+  );
+  }
 
     // if(isAuthenticated){
     //      const username = (user as any).nickname;
@@ -141,7 +152,8 @@ useEffect(() => {
                                     style={{backgroundColor: "#494f5e", border: "2px solid #9ca3af"}}
                                 >
 
-                                    {members?.[1].name.slice(0, 2).toUpperCase()}
+                                    {members?.[1]?.name?.slice(0, 2).toUpperCase() || "?"}
+                                    {/*{members?.[1].name.slice(0, 2).toUpperCase()}*/}
                                 </Avatar>
                                 <ThemeIcon size={40} radius="xl" variant="transparent" color="#9ca3af">
                                     <IconWrapper icon={LuMedal} size={32}/>
@@ -164,7 +176,8 @@ useEffect(() => {
                                     variant="transparent"
                                     style={{backgroundColor: "#b17300", border: "4px solid #f5c518"}}
                                 >
-                                    {members?.[0].name.slice(0, 2).toUpperCase()}
+                                    {members?.[0]?.name?.slice(0, 2).toUpperCase() || "?"}
+                                    {/*{members?.[0].name.slice(0, 2).toUpperCase()}*/}
                                 </Avatar>
                                 <ThemeIcon size={50} radius="xl" variant="transparent" color="#f5c518">
                                     <IconWrapper icon={LuCrown} size={40}/>
@@ -187,7 +200,8 @@ useEffect(() => {
                                     variant="transparent"
                                     style={{backgroundColor: "#8e4003", border: "2px solid #b45309"}}
                                 >
-                                    {members?.[2].name.slice(0, 2).toUpperCase()}
+                                    {/*{members?.[2].name.slice(0, 2).toUpperCase()}*/}
+                                    {members?.[2]?.name?.slice(0, 2).toUpperCase() || "?"}
                                 </Avatar>
                                 <ThemeIcon size={40} radius="xl" variant="transparent" color="#b45309">
                                     <IconWrapper icon={LuAward} size={32}/>
@@ -234,7 +248,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score", "Reviews", "Change"].map((h) => (
+                                            {["Rank", "User", "Score"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
@@ -325,7 +339,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score", "Reviews", "Change"].map((h) => (
+                                            {["Rank", "User", "Score"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
@@ -414,7 +428,7 @@ useEffect(() => {
                                 >
                                     <Table.Thead>
                                         <Table.Tr>
-                                            {["Rank", "User", "Score", "Change"].map((h) => (
+                                            {["Rank", "User", "Score"].map((h) => (
                                                 <Table.Th key={h}>
                                                     <Text c="gray.5">{h}</Text>
                                                 </Table.Th>
