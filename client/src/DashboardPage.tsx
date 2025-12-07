@@ -113,7 +113,7 @@ function DashboardPage() {
 
     // @ts-ignore
     return user ? (
-    <div style={{ padding: "2rem"}}>
+    <div>
         <Title order={1} ta="center" >
             Welcome back, {user.name}!
         </Title>
@@ -240,9 +240,9 @@ function DashboardPage() {
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Card shadow="sm" radius="md" p="lg">
             <Title order={3} mb="xs">Team Trends</Title>
-              {/*  <Text size="sm" c="dimmed">
+                <Text size="sm" c="dimmed">
               Avg review response time ↓ 12%
-            </Text> */}
+            </Text>
             <div>
                 <Heatmap data={heatData} startDate="2025-02-08" endDate="2025-05-08" rectSize={17}/>
             </div>

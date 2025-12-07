@@ -3,8 +3,8 @@ import psycopg2
 from flasgger import Swagger
 from flask_cors import CORS
 import traceback
-# import jose import jwt
 import requests
+import os
 
 
 # run this only once pls
@@ -16,25 +16,6 @@ def initdb():
         password="password"
     )
     cur = conn.cursor()
-    # cur.execute("""
-    #             CREATE TABLE IF NOT EXISTS leaderboard
-    #             (
-    #                 id SERIAL PRIMARY KEY,
-    #                 name TEXT NOT NULL,
-    #                 score INT NOT NULL
-    #             );
-    #             """)
-
-    # cur.execute("DELETE FROM leaderboard;") #delete this at some point
-    # cur.execute("SELECT COUNT(*) FROM leaderboard;")
-    # if cur.fetchone()[0] == 0:  # only inserts if empty
-    #     cur.execute("""
-    #                 INSERT INTO leaderboard (name, score)
-    #                 VALUES ('Amber', 100),
-    #                        ('Julie', 80),
-    #                        ('Alyssa', 60);
-    #                 """)
-
     conn.commit()
     cur.close()
     conn.close()
@@ -55,8 +36,6 @@ app = Flask(__name__)
 swagger = Swagger(app)
 CORS(app, origins=["http://localhost:3000"])
 
-
-# empty route/login screen
 @app.route('/api/')
 def default():
     return "default"
@@ -557,8 +536,6 @@ def give_user_achievement(user_id):
 
     return jsonify({"message": "Achievement granted"}), 201
 
-
-
 @app.route('/api/users/by-nickname/<nickname>/achievements', methods=['GET'])
 def achievements_by_nickname(nickname):
     conn = getdbconnection()
@@ -580,58 +557,417 @@ def achievements_by_nickname(nickname):
     finally:
         conn.close()
 
-
-# @app.route('/api/achievements')
-# def profile():
-#     return "Acheivements"
-
 @app.route('/api/settings')
 def settings():
     return "Settings"
 
+AI_SERVICE_URL = "http://ai-service:8000/api"
+GITHUB_API = "https://api.github.com"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-# ai_url = "http://ai-service:8000"
-ai_url = "http://ai-service:8000/api"
+def github_get(endpoint: str, token: str | None = None):
+    # Default to app-level PAT
+    if token is None:
+        token = GITHUB_TOKEN
 
-@app.route('/api/analyze', methods=['POST'])
-def analyze():
-    data = request.json
-    if not data:
-        return jsonify({"error": "no JSON body received"}), 400
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     try:
-        resp = requests.post(f"{ai_url}/analyze", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
-        print("ERROR in /api/analyze:", str(e))
+        r = requests.get(f"{GITHUB_API}{endpoint}", headers=headers, timeout=30)
+    except Exception as e:
+        # Network or request error → 500 from our API
+        print("GitHub request failed:", e)
+        return None, {"error": "request_failed", "detail": str(e)}
+
+    try:
+        data = r.json()
+    except ValueError:
+        # Not JSON (e.g. HTML error page)
+        print("GitHub returned non-JSON:", r.status_code, r.text[:200])
+        return None, {
+            "error": "invalid_json",
+            "status": r.status_code,
+            "text": r.text,
+        }
+
+    if r.status_code != 200:
+        print("GitHub API error:", r.status_code, data)
+        return None, {"status": r.status_code, "body": data}
+
+    return data, None
+
+@app.route("/api/github/user/prs")
+def get_user_prs():
+    """
+    Get PRs for a given GitHub username.
+    Uses app-level PAT (GITHUB_TOKEN) and a query param ?username=
+    """
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token=None,  # force use of PAT
+    )
+
+    if err:
+        # Bubble up the GitHub error so you can see it in the browser
+        return jsonify({"error": "Failed to fetch PRs", "details": err}), 500
+
+    return jsonify(prs)
+
+@app.route("/api/github/user/prs/comments")
+def get_user_comments():
+    """
+    Get PRs for a given GitHub username.
+    Uses app-level PAT (GITHUB_TOKEN) and a query param ?username=
+    """
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token=None,  # force use of PAT
+    )
+
+    #comments in a PR
+
+    comments = []
+
+    for pr in prs["items"]:
+        print(pr)
+        #owner = pr["base"]["repo"]["owner"]["login"]
+        # owner = pr.get("repo_owner")
+        # repo = pr.get("repo_name")
+        repo_url = pr.get("repository_url")  # e.g., https://api.github.com/repos/ynydara/411-Project
+        owner, repo = repo_url.split("/")[-2:]
+        pr_number = pr["number"]
+        print(pr_number)
+       # review_comments = github_get(f"/repos/{owner}/{repo}/pulls/{pr_number}/comments", token=NONE)
+       #  review_comments = github_get(f"/repos/{owner}/{repo}/pulls/{pr_number}/comments", token=None)
+        #issue_comments = github_get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", token=None)
+
+        # Conversation comments
+        issue_comments, err1 = github_get(f"/repos/{owner}/{repo}/issues/{pr_number}/comments", token=None)
+        # Review comments (inline)
+        review_comments, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{pr_number}/comments", token=None)
+
+        all_comments = []
+        if issue_comments: all_comments.extend(issue_comments)
+        if review_comments: all_comments.extend(review_comments)
+
+        my_comments = [c for c in all_comments if c.get("user", {}).get("login") == username]
+
+        if issue_comments is None:
+            review_comments = []
+
+        # my_comments = [
+        #     c for c in issue_comments
+        #     if c is not None and c.get("user", {}).get("login") == username
+        # ]
+        # my_comments = [c for c in review_comments if c["user"]["login"] == username]
+        if my_comments:
+            comments.append({
+                "pr_number": pr_number,
+                "repo": f"{owner}/{repo}",
+                "comments": my_comments
+            })
+            print(jsonify(comments))
+            print(my_comments)
+
+    if err:
+        # Bubble up the GitHub error so you can see it in the browser
+        return jsonify({"error": "Failed to fetch PRs and their comments", "details": err}), 500
+
+    return jsonify(comments)
+# ---------------------- REPO PRs -------------------------
+@app.route("/api/github/repos/<owner>/<repo>/prs")
+def get_repo_prs(owner, repo):
+    auth = request.headers.get("Authorization")
+    if not auth:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = auth.replace("Bearer ", "")
+    prs, err = github_get(f"/repos/{owner}/{repo}/pulls", token)
+
+    if err:
+        return jsonify({"error": "Failed to fetch repo PRs", "details": err}), 400
+
+    return jsonify(prs)
+
+# ---------------------- PR DETAILS ------------------------
+@app.route("/api/github/pr/<owner>/<repo>/<int:number>")
+def get_pr_details(owner, repo, number):
+    auth = request.headers.get("Authorization")
+    if not auth:
+        return jsonify({"error": "Missing GitHub OAuth token"}), 401
+
+    token = auth.replace("Bearer ", "")
+
+    pr, err = github_get(f"/repos/{owner}/{repo}/pulls/{number}", token)
+    if err:
+        return jsonify({"error": "Failed to fetch PR", "details": err}), 400
+
+    files, err2 = github_get(f"/repos/{owner}/{repo}/pulls/{number}/files", token)
+    if err2:
+        return jsonify({"error": "Failed to fetch PR files", "details": err2}), 400
+
+    return jsonify({"pr": pr, "files": files})
+
+
+@app.route("/api/analyze", methods=["POST"])
+def analyze():
+    try:
+        data = request.get_json(force=True) or {}
+        print("Incoming /api/analyze payload:", data)
+
+        # Who are we scoring for?
+        user_id = data.get("user_id")  # optional
+        github_id = data.get("githubId") or data.get("github_id")
+
+        content = data.get("content")
+        analysis_type = data.get("type", "text")
+
+        if not content:
+            return jsonify({"error": "Missing content"}), 400
+
+        # Payload for AI-service
+        payload = {"type": analysis_type, "content": content, "file": data.get("file", "unknown")}
+
+        # ------------------ Call AI service ------------------
+        try:
+            resp = requests.post(f"{AI_SERVICE_URL}/analyze", json=payload, timeout=60)
+            resp.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print("Error contacting AI service:", e)
+            if getattr(e, "response", None) is not None:
+                try:
+                    print("AI error response text:", e.response.text)
+                except Exception:
+                    pass
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+
+        # ------------------ Parse AI response ------------------
+        try:
+            result = resp.json()
+        except ValueError:
+            print("Invalid JSON from AI service:", resp.text)
+            traceback.print_exc()
+            return jsonify({"error": "Invalid JSON from AI service"}), 500
+
+        print("AI Service response:", result)
+
+        # Our ai-service returns { model, success, data: {...}, insight: {...} }
+        analysis = result.get("data") or {}
+        sentiment = analysis.get("sentiment", "neutral")
+
+        raw_construct = analysis.get("constructiveness_score", 0.5)
+        try:
+            constructiveness = float(raw_construct)
+        except (TypeError, ValueError):
+            constructiveness = 0.5
+
+        score = compute_score(sentiment, constructiveness)
+
+        # Attach score so frontend can see it
+        analysis["score"] = score
+        result["data"] = analysis
+
+        # ------------------ Update DB (code_score) ------------------
+        resolved_user_id = None
+
+        if user_id is not None:
+            resolved_user_id = user_id
+        elif github_id:
+            conn = getdbconnection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT id FROM users WHERE githubId = %s;", (github_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        resolved_user_id = row[0]
+            finally:
+                conn.close()
+
+        if resolved_user_id is not None:
+            conn = getdbconnection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE users
+                        SET code_score = code_score + %s
+                        WHERE id = %s
+                        RETURNING id, code_score;
+                        """,
+                        (score, resolved_user_id),
+                    )
+                    updated = cursor.fetchone()
+                    if not updated:
+                        conn.rollback()
+                        print("No user row found for id:", resolved_user_id)
+                    else:
+                        conn.commit()
+                        print("Updated user code_score:", updated)
+            finally:
+                conn.close()
+        else:
+            print("No user_id / githubId resolved; skipping DB update")
+
+        # Return AI result (with score in data) to frontend
+        return jsonify(result)
+
+    except Exception as e:
+        print("Unhandled exception in /api/analyze:", e)
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+def compute_score(sentiment: str, constructiveness: float) -> float:
+    """Compute score based on rubric."""
+    if sentiment is None:
+        sentiment = "neutral"
+    sentiment_value = {
+        "positive": 1.0,
+        "neutral": 0.5,
+        "negative": 0.0
+    }.get(sentiment.lower(), 0.5)
 
-@app.route('/api/classify', methods=['POST'])
-def classify_route():
-    data = request.json  # { "text": "some PR description" }
-    try:
-        resp = requests.post(f"{ai_url}/classify", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-        # send AI's response back to frontend
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+    score = (constructiveness * 0.6 + sentiment_value * 0.4) * 100
+
+    intScore = int(round(score,2)) #database only accepts ints, no decimals
+    return intScore
 
 
-@app.route('/api/review', methods=['POST'])
-def review():
+@app.route("/api/score/update", methods=["POST"])
+def update_scores_from_analysis():
     data = request.json
+    username = data.get("username")
 
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+    # Get PRs
+    prs, err = github_get(
+        f"/search/issues?q=type:pr+author:{username}+is:open",
+        token=None
+    )
+
+    if err:
+        return jsonify({"error": "Failed to fetch PRs", "details": err}), 500
+
+    total_code_score = 0
+    total_comment_score = 0
+
+ #fetch comments
+    for pr in prs["items"]:
+
+        repo_url = pr["repository_url"]
+        owner, repo = repo_url.split("/")[-2:]
+        pr_number = pr["number"]
+
+        issue_comments, _ = github_get(
+            f"/repos/{owner}/{repo}/issues/{pr_number}/comments",
+            token=None
+        )
+        review_comments, _ = github_get(
+            f"/repos/{owner}/{repo}/pulls/{pr_number}/comments",
+            token=None
+        )
+
+        all_comments = []
+        if issue_comments: all_comments.extend(issue_comments)
+        print("The issue comments are: ", issue_comments)
+
+        if review_comments: all_comments.extend(review_comments)
+        print("The review comments are: ", review_comments)
+
+        # Keep only comments made by the user
+        user_comments = [c for c in all_comments
+                         if c["user"]["login"] == username]
+
+        for c in user_comments:
+            text = c.get("body", "")
+
+            # Call AI microservice
+            resp = requests.post(
+                f"{AI_SERVICE_URL}/analyze",
+                json={"content": text},
+                timeout=30
+            )
+            analysis = resp.json()
+            sentiment = analysis.get("sentiment")
+            constructiveness = float(analysis.get("constructiveness", 0))
+
+            score = compute_score(sentiment, constructiveness)
+            total_comment_score += score
+
+        pr_text = pr.get("title", "") + "\n" + pr.get("body", "")
+
+        resp = requests.post(
+            f"{AI_SERVICE_URL}/analyze",
+            json={"content": pr_text},
+            timeout=30
+        )
+        analysis = resp.json()
+        sentiment = analysis.get("sentiment")
+        constructiveness = float(analysis.get("constructiveness", 0))
+        pr_score = compute_score(sentiment, constructiveness)
+        total_code_score += pr_score
+
+    # ------- 4. Update user in DB -------
+    conn = getdbconnection()
     try:
-        resp = requests.post(f"{ai_url}/review", json=data, timeout=60)
-        resp.raise_for_status()
-        return jsonify(resp.json())
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+        with conn.cursor() as cur:
 
+            # 1. Get existing scores
+            cur.execute("""
+                        SELECT code_score, comment_score
+                        FROM users
+                        WHERE githubId = %s
+                        """, (username,))
+            row = cur.fetchone()
+
+            if not row:
+                return jsonify({"error": "User does not exist"}), 404
+
+            existing_code = row[0]
+            existing_comment = row[1]
+
+            # 2. Add (increment)
+            new_code_score = existing_code + total_code_score
+            new_comment_score = existing_comment + total_comment_score
+
+            # 3. Save updated totals
+            cur.execute("""
+                        UPDATE users
+                        SET code_score    = %s,
+                            comment_score = %s
+                        WHERE githubId = %s RETURNING id;
+                        """, (new_code_score, new_comment_score, username))
+
+            conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({
+        "message": "Scores updated",
+        "added_code_score": total_code_score,
+        "added_comment_score": total_comment_score,
+        "final_code_score": new_code_score,
+        "final_comment_score": new_comment_score
+    }), 200
+
+
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}
 
 if __name__ == '__main__':
     initdb()

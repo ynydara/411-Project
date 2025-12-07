@@ -1,101 +1,174 @@
-from fastapi import FastAPI
+import os
+import json
+import re
+import traceback
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
-import torch
-from torch.nn import functional as F
+from huggingface_hub import InferenceClient
 
-app = FastAPI(title="AI Service")
+HF_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
-# --- Load Models ---
-CLASSIFIER_MODEL = "Akirk1213/review-classification"
-clf_tokenizer = AutoTokenizer.from_pretrained(CLASSIFIER_MODEL)
-clf_model = AutoModelForSequenceClassification.from_pretrained(CLASSIFIER_MODEL)
+if not HF_TOKEN:
+    raise ValueError("Missing Hugging Face API key in environment variables")
 
-CODEREVIEWER_MODEL = "microsoft/codereviewer"
-rev_tokenizer = AutoTokenizer.from_pretrained(CODEREVIEWER_MODEL)
-rev_model = AutoModelForSeq2SeqLM.from_pretrained(CODEREVIEWER_MODEL)
+# Use HF Inference API instead of loading model locally
+client = InferenceClient(model=MODEL_ID, token=HF_TOKEN)
+print(f"🔹 Using HF Inference API model: {MODEL_ID}")
 
-# --- Request schema ---
-class TextRequest(BaseModel):
-    text: str
-
-# --- Utility: Detect if input looks like code ---
-def is_code_like(text: str) -> bool:
-    code_signals = [";", "{", "}", "def ", "class ", "function ", "=>", "import "]
-    return any(sig in text for sig in code_signals)
+app = FastAPI(title="AI-Service", version="3.0")
 
 
-# --- Classifier ---
-@app.post("/api/classify")
-def classify(req: TextRequest):
-    try:
-        inputs = clf_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            outputs = clf_model(**inputs)
-        probs = F.softmax(outputs.logits, dim=-1)[0]
-        pred_id = probs.argmax().item()
-        labels = clf_model.config.id2label
-
-        return {
-            "text": req.text,
-            "prediction": labels[pred_id],
-            "confidence": float(probs[pred_id]),
-            "scores": {labels[i]: float(p) for i, p in enumerate(probs)},
-            "source": "classifier"
-        }
-    except Exception as e:
-        return {"error": str(e)}
+class AnalysisRequest(BaseModel):
+    type: str   # "pr" | "comment" | "code"
+    content: str
+    file: str = "unknown"
 
 
-# --- Code Reviewer ---
-@app.post("/api/review")
-def review(req: TextRequest):
-    try:
-        inputs = rev_tokenizer(req.text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            tokens = rev_model.generate(
-                **inputs, max_length=200, num_beams=5, early_stopping=True
-            )
-        review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "ai-service"}
 
-        # Clean artifacts
-        review_text = review_text.replace("<e0>", "").replace("</s>", "").strip()
-
-        return {"text": req.text, "review": review_text, "source": "codereviewer"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# --- Auto Analyze (smart routing) ---
 @app.post("/api/analyze")
-def analyze(req: TextRequest):
-    text = req.text.strip()
+def analyze(payload: AnalysisRequest):
+    try:
 
-    if is_code_like(text):
-        # Route to CodeReviewer
-        inputs = rev_tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            tokens = rev_model.generate(
-                **inputs, max_length=200, num_beams=5, early_stopping=True
-            )
-        review_text = rev_tokenizer.decode(tokens[0], skip_special_tokens=True)
-        review_text = review_text.replace("<e0>", "").replace("</s>", "").strip()
+        system_msg = (
+            "You are an AI that analyzes GitHub pull requests, comments, or code "
+            "and returns ONLY JSON in a fixed schema. Do not include markdown or text "
+            "outside the JSON object."
+        )
 
-        return {"text": text, "review": review_text, "source": "codereviewer"}
+        user_prompt = build_prompt(payload.type, payload.content, payload.file)
 
-    else:
-        # Route to Classifier
-        inputs = clf_tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            outputs = clf_model(**inputs)
-        probs = F.softmax(outputs.logits, dim=-1)[0]
-        pred_id = probs.argmax().item()
-        labels = clf_model.config.id2label
+        resp = client.chat_completion(
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=300,
+            temperature=0.6,
+            top_p=0.9,
+        )
+
+        # HF returns an object; extract the text
+        raw_output = resp.choices[0].message["content"]
+        print("🔹 HF output (truncated):", repr(raw_output)[:200])
+
+        structured = parse_ai_response(raw_output)
+        dashboard_obj = convert_to_dashboard_format(structured)
 
         return {
-            "text": text,
-            "prediction": labels[pred_id],
-            "confidence": float(probs[pred_id]),
-            "scores": {labels[i]: float(p) for i, p in enumerate(probs)},
-            "source": "classifier"
+            "model": MODEL_ID,
+            "success": True,
+            "data": structured,
+            "insight": dashboard_obj,
         }
+    except Exception as e:
+        print("Error in /api/analyze:", repr(e))
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"HF error: {e}")
+
+
+def build_prompt(data_type: str, content: str, file: str = "unknown") -> str:
+    return f"""
+You are an AI that analyzes GitHub {data_type}s. Pr's, and Comments. Please give us explanations of PR reviews and
+how to better right PR's/ Handle issues. Look at code syntax for error analysis on code basis in PR's.
+
+Return ONLY valid JSON in exactly this schema and value ranges:
+
+{{
+  "summary": "short explanation (string)",
+  "sentiment": "positive" | "neutral" | "negative",
+  "category": "feature" | "bugfix" | "refactor" | "documentation" | "other",
+  "constructiveness_score": number between 0 and 1,
+  "suggestions": ["1-3 short actionable suggestions (strings)"],
+  "confidence": number between 0 and 1,
+  "file": "{file}"
+}}
+
+Do not include any extra keys. Do not include markdown or explanation outside the JSON.
+
+Content:
+\"\"\" 
+{content}
+\"\"\" 
+"""
+
+
+def parse_ai_response(output: str) -> dict:
+    match = re.search(r"\{.*\}", output, re.DOTALL)
+
+    def fallback_json(reason: str):
+        return {
+            "summary": reason,
+            "sentiment": "neutral",
+            "category": "other",
+            "constructiveness_score": 0.5,
+            "suggestions": ["No valid output generated."],
+            "confidence": 0.5,
+            "file": "unknown",
+        }
+
+    if not match:
+        return fallback_json("Unable to parse model output")
+
+    try:
+        parsed = json.loads(match.group())
+
+        raw_sentiment = parsed.get("sentiment", "neutral")
+        raw_category = parsed.get("category", "other")
+        raw_construct = parsed.get("constructiveness_score")
+        raw_confidence = parsed.get("confidence", 0.5)
+
+        if raw_sentiment not in {"positive", "neutral", "negative"}:
+            raw_sentiment = "neutral"
+
+        if raw_category not in {"feature", "bugfix", "refactor", "documentation", "other"}:
+            raw_category = "other"
+
+        try:
+            constructiveness = float(raw_construct)
+        except (TypeError, ValueError):
+            constructiveness = 0.5
+        constructiveness = max(0.0, min(1.0, constructiveness))
+
+        try:
+            confidence = float(raw_confidence)
+        except (TypeError, ValueError):
+            confidence = 0.5
+        confidence = max(0.0, min(1.0, confidence))
+
+        return {
+            "summary": parsed.get("summary", ""),
+            "sentiment": raw_sentiment,
+            "category": raw_category,
+            "constructiveness_score": constructiveness,
+            "suggestions": parsed.get("suggestions", []),
+            "confidence": confidence,
+            "file": parsed.get("file", "unknown"),
+        }
+    except Exception:
+        return fallback_json("Invalid JSON returned from model")
+
+def convert_to_dashboard_format(ai_json: dict) -> dict:
+    type_map = {
+        "negative": "critical",
+        "positive": "positive",
+        "neutral": "suggestion",
+    }
+    sentiment = ai_json.get("sentiment", "neutral")
+    type_value = type_map.get(sentiment, "suggestion")
+
+    return {
+        "type": type_value,
+        "title": ai_json["summary"],
+        "description": ai_json["suggestions"][0] if ai_json["suggestions"] else "",
+        "file": ai_json["file"],
+        "confidence": int(ai_json["confidence"] * 100),
+        "color": {
+            "critical": "red",
+            "suggestion": "blue",
+            "positive": "green",
+        }.get(type_value, "gray"),
+    }
